@@ -21,10 +21,10 @@
 ### 📋 Phase 0: Project Setup & Data Acquisition
 > **Goal:** Set up reproducible virtual environment via `uv`, acquire the raw Olist relational dataset, and establish directory conventions.
 
-- [ ] **0.1 Environment Initialization:**
+- [X] **0.1 Environment Initialization:**
   - Initialize project with `uv` and configure `pyproject.toml` / `requirements.txt`.
   - Install core scientific stack (`pandas`, `numpy`, `matplotlib`, `seaborn`, `scikit-learn`, `xgboost`, `shap`, `jupyterlab`).
-- [ ] **0.2 Data Download & Schema Audit:**
+- [X] **0.2 Data Download & Schema Audit:**
   - Download the 8 relational CSV files from the Kaggle Brazilian E-Commerce Public Dataset by Olist.
   - Store raw files in `data/raw/` with a relational diagram check (Primary Keys & Foreign Keys).
 
@@ -33,7 +33,7 @@
 ### 🧹 Phase 1: Relational Data Engineering & Feature Synthesis (Pandas)
 > **Goal:** Transform 8 fragmented relational tables into a unified, analytical customer-level dataset (`data/processed/customer_features.parquet`).
 
-- [ ] **1.1 Relational Merging & Primary Key Resolution:**
+- [X] **1.1 Relational Merging & Primary Key Resolution:**
   - Resolve the difference between `customer_id` (per order) and `customer_unique_id` (the actual human being across multiple purchases).
   - Join orders, items, payments, reviews, and geolocation data without Cartesian duplication.
 - [ ] **1.2 Operational Feature Engineering:**
