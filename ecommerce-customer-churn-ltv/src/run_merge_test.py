@@ -1,24 +1,28 @@
-from src.data_processing import load_raw_tables, build_unified_orders_dataframe
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.data_processing import (
+    load_raw_tables,
+    build_unified_orders_dataframe,
+    engineer_order_level_features,
+    aggregate_to_customer_level,
+    label_churn_and_export
+)
 
 def main():
+    # 1. Load & Merge
     tables = load_raw_tables()
     df_orders = build_unified_orders_dataframe(tables)
 
-    print("\n" + "=" * 60)
-    print("📋 UNIFIED ORDERS SCHEMA & INTEGRITY CHECK")
-    print("=" * 60)
-    print(df_orders.info())
-    print("\n--- SAMPLE ROW ---")
-    sample = df_orders[["order_id", "customer_unique_id", "total_item_value", "total_payment_value", "clean_category", "review_score"]].iloc[0]
-    print(sample)
+    # 2. Engineer Order Features
+    df_orders = engineer_order_level_features(df_orders)
 
-    # Sanity check: Ensure customer_unique_id has repeat buyers!
-    customer_counts = df_orders["customer_unique_id"].value_counts()
-    repeat_buyers = (customer_counts > 1).sum()
-    print("\n" + "=" * 60)
-    print(f"👤 Total Unique Customers:     {len(customer_counts):,}")
-    print(f"🔁 Repeat Buyers Identified:   {repeat_buyers:,} ({(repeat_buyers / len(customer_counts)) * 100:.2f}%)")
-    print("=" * 60)
+    # 3. Aggregate to Customer Level
+    df_customers = aggregate_to_customer_level(df_orders)
+
+    # 4. Label Churn & Export to Parquet
+    df_final = label_churn_and_export(df_customers)
 
 if __name__ == "__main__":
     main()

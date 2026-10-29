@@ -36,7 +36,7 @@
 - [X] **1.1 Relational Merging & Primary Key Resolution:**
   - Resolve the difference between `customer_id` (per order) and `customer_unique_id` (the actual human being across multiple purchases).
   - Join orders, items, payments, reviews, and geolocation data without Cartesian duplication.
-- [ ] **1.2 Operational Feature Engineering:**
+- [X] **1.2 Operational Feature Engineering:**
   - *Logistics features:* Calculate `delivery_delay_days` (difference between actual delivery and estimated delivery date), `freight_ratio` (freight cost vs. item price).
   - *Payment behavior:* Average installments, payment type preferences (Boleto vs. Cartão).
   - *Review metrics:* Historical review scores and whether the customer left negative feedback.
