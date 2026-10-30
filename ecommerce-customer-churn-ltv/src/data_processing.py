@@ -196,30 +196,28 @@ def aggregate_to_customer_level(df_orders: pd.DataFrame) -> pd.DataFrame:
     print(f"🎉 Customer-level dataset created: {len(customer_df):,} unique customers ready!")
     return customer_df
 
-def label_churn_and_export(df_customers: pd.DataFrame, output_path: str = "data/processed/customer_features.parquet") -> pd.DataFrame:
+def export_processed_datasets(
+    df_customers: pd.DataFrame, 
+    df_orders: pd.DataFrame,
+    output_dir: str = "data/processed"
+) -> None:
     """
-    Labels churn based on recency inactivity and saves the processed dataset to Parquet.
-    In Brazilian non-contractual e-commerce, customers inactive for > 180 days 
-    exhibit < 5% probability of organic repurchase.
+    Labels churn and exports both customer-level and order-level clean datasets
+    into high-performance Parquet files.
     """
-    df = df_customers.copy()
-    print("\n--- Formulating Churn Target Label ---")
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-    # Inactivity threshold: 180 days (6 months)
+    print("\n--- Formulating Churn Target & Exporting Datasets ---")
     CHURN_THRESHOLD_DAYS = 180.0
-    
-    # 1 = Churned (Inactive for > 180 days), 0 = Active / Retained
-    df["is_churned"] = (df["recency_days"] > CHURN_THRESHOLD_DAYS).astype(int)
+    df_customers["is_churned"] = (df_customers["recency_days"] > CHURN_THRESHOLD_DAYS).astype(int)
 
-    churn_rate = df["is_churned"].mean() * 100
-    print(f"Churn Threshold: > {CHURN_THRESHOLD_DAYS} days of inactivity.")
-    print(f"Overall Customer Churn Rate: {churn_rate:.2f}%")
-    print(f"Active Customers: {len(df[df['is_churned'] == 0]):,} | Churned Customers: {len(df[df['is_churned'] == 1]):,}")
+    # 1. Save customer-level
+    cust_file = out_path / "customer_features.parquet"
+    df_customers.to_parquet(cust_file, index=False)
+    print(f"💾 Customer dataset saved: {cust_file}")
 
-    # Export to Parquet (high-performance columnar format for Pandas/ML)
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(output_file, index=False)
-    print(f"\n💾 Analytical dataset saved to: {output_file.resolve()}")
-
-    return df
+    # 2. Save order-level
+    orders_file = out_path / "orders_clean.parquet"
+    df_orders.to_parquet(orders_file, index=False)
+    print(f"💾 Clean orders dataset saved: {orders_file}")

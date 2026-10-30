@@ -40,7 +40,7 @@
   - *Logistics features:* Calculate `delivery_delay_days` (difference between actual delivery and estimated delivery date), `freight_ratio` (freight cost vs. item price).
   - *Payment behavior:* Average installments, payment type preferences (Boleto vs. Cartão).
   - *Review metrics:* Historical review scores and whether the customer left negative feedback.
-- [ ] **1.3 Churn Definition & Ground Truth Formulation:**
+- [X] **1.3 Churn Definition & Ground Truth Formulation:**
   - Establish an objective e-commerce churn window based on Brazilian retail purchasing cycles (e.g., customers with no repeat purchases within a defined historical inactivity cutoff).
 
 ---
@@ -48,12 +48,12 @@
 ### 📊 Phase 2: Exploratory Data Analysis (EDA) & Commercial Insights (Seaborn & Matplotlib)
 > **Goal:** Discover commercial patterns, geographic logistics bottlenecks, and customer behavior trends to drive business decisions.
 
-- [ ] **2.1 Cohort & Temporal Analysis:**
+- [X] **2.1 Cohort & Temporal Analysis:**
   - Monthly order volume, gross merchandise value (GMV), and seasonality spikes (e.g., Black Friday 2017).
-- [ ] **2.2 Logistics Impact Analysis:**
+- [X] **2.2 Logistics Impact Analysis:**
   - Correlation between delivery delays / freight costs and customer satisfaction (review scores).
   - Regional logistics disparities (Southeast vs. North/Northeast delivery lead times).
-- [ ] **2.3 Financial & Unit Economics Breakdown:**
+- [X] **2.3 Financial & Unit Economics Breakdown:**
   - Basket size distributions, installment usage across income/geographic regions, and repeat purchase rates.
 
 ---
