@@ -61,13 +61,13 @@
 ### 🧩 Phase 3: Customer Segmentation & Lifetime Value (RFM + K-Means)
 > **Goal:** Categorize customers into actionable strategic tiers based on Recency, Frequency, and Monetary behavior.
 
-- [ ] **3.1 RFM Calculation:**
+- [X] **3.1 RFM Calculation:**
   - Calculate **R** (days since last purchase), **F** (total number of orders), and **M** (total monetary spend) for every unique customer.
-- [ ] **3.2 Preprocessing for Clustering:**
+- [X] **3.2 Preprocessing for Clustering:**
   - Log-transformation to handle heavy right-skewed monetary distributions; feature standardization via `StandardScaler`.
-- [ ] **3.3 K-Means Optimization:**
+- [X] **3.3 K-Means Optimization:**
   - Determine optimal $k$ clusters using the **Elbow Method** (Inertia) and **Silhouette Scores**.
-- [ ] **3.4 Commercial Persona Profiling:**
+- [X] **3.4 Commercial Persona Profiling:**
   - Assign business names to clusters (e.g., *Champions / VIPs*, *Loyal Customers*, *At-Risk High Spenders*, *Lost / Hibernating*).
   - Formulate targeted marketing strategies per cluster (e.g., cross-sell, reactivation discounts).
 
