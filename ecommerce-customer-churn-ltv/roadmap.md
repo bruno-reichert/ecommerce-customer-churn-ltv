@@ -76,10 +76,10 @@
 ### 🤖 Phase 4: Supervised Churn Predictive Modeling (Scikit-Learn & XGBoost)
 > **Goal:** Build, evaluate, and tune a machine learning classifier to predict customer churn probability.
 
-- [ ] **4.1 Pipeline Design & Data Splitting:**
+- [X] **4.1 Pipeline Design & Data Splitting:**
   - Time-based or stratified train/test split to prevent temporal data leakage.
   - Preprocessing pipeline: `OneHotEncoder` for categoricals, `StandardScaler` for continuous features.
-- [ ] **4.2 Baseline Models:**
+- [X] **4.2 Baseline Models:**
   - Train standard baselines: Dummy Classifier, Logistic Regression, Random Forest.
 - [ ] **4.3 Gradient Boosting & Hyperparameter Tuning:**
   - Train **XGBoost Classifier** with class imbalance mitigation (e.g., `scale_pos_weight`).
