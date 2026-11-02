@@ -81,10 +81,10 @@
   - Preprocessing pipeline: `OneHotEncoder` for categoricals, `StandardScaler` for continuous features.
 - [X] **4.2 Baseline Models:**
   - Train standard baselines: Dummy Classifier, Logistic Regression, Random Forest.
-- [ ] **4.3 Gradient Boosting & Hyperparameter Tuning:**
+- [X] **4.3 Gradient Boosting & Hyperparameter Tuning:**
   - Train **XGBoost Classifier** with class imbalance mitigation (e.g., `scale_pos_weight`).
   - Optimize hyperparameters using `GridSearchCV` or `RandomizedSearchCV` cross-validation.
-- [ ] **4.4 Model Evaluation:**
+- [X] **4.4 Model Evaluation:**
   - Assess performance using metrics tailored for commercial imbalance: **ROC-AUC**, **Precision-Recall Curve**, **F1-Score**, and **Confusion Matrix**.
   - Set optimal classification threshold based on the business cost of false positives (unnecessary discount coupons) vs. false negatives (lost customers).
 
@@ -93,7 +93,7 @@
 ### 💡 Phase 5: Business Interpretability & LTV Financial Impact (SHAP)
 > **Goal:** Translate mathematical model coefficients into actionable executive decisions.
 
-- [ ] **5.1 Global Feature Importance with SHAP:**
+- [X] **5.1 Global Feature Importance with SHAP:**
   - Generate SHAP Summary Beeswarm plots to identify what drives churn company-wide (e.g., does freight cost outweigh delivery delay?).
 - [ ] **5.2 Individual Customer Explainability (Waterfall Plots):**
   - Show how the model explains risk for a specific high-LTV customer.
