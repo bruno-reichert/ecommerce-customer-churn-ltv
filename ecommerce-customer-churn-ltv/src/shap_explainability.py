@@ -137,9 +137,92 @@ def run_global_shap_analysis(sample_size: int = 3000):
         print(f"   {rank}. {feature_names[idx]:<30} (Mean Impact: {mean_abs_shap[idx]:.4f})")
     print("=" * 65)
 
+def plot_individual_waterfalls(
+    explainer: shap.TreeExplainer, 
+    X_test_transformed: np.ndarray, 
+    feature_names: list, 
+    y_test: pd.Series, 
+    y_prob: np.ndarray, 
+    X_test_raw: pd.DataFrame
+) -> None:
+    """
+    Generates SHAP Waterfall plots for two contrasting real-world customer archetypes:
+    1. An At-Risk Customer (High probability of churn)
+    2. A Loyal / Retained Customer (Low probability of churn)
+    """
+    print("\n--- Generating Individual Customer Waterfall Plots ---")
+
+    # Create a DataFrame with clean feature names for SHAP
+    X_test_df = pd.DataFrame(X_test_transformed, columns=feature_names)
+
+    # Calculate SHAP Explanation object for the test set
+    explanation = explainer(X_test_df)
+
+    # 1. Identify Case A: High-Risk Customer (High churn prob + spent over R$ 150)
+    high_risk_mask = (y_prob >= 0.85) & (X_test_raw["total_spend"].values >= 150)
+    high_risk_idx = np.where(high_risk_mask)[0][0]
+
+    # 2. Identify Case B: Low-Risk / Retained Customer (Low churn prob)
+    low_risk_mask = (y_prob <= 0.15)
+    low_risk_idx = np.where(low_risk_mask)[0][0]
+
+    cases = [
+        ("Case A: At-Risk Customer (High Churn Probability)", high_risk_idx, "13_shap_waterfall_at_risk_customer.png"),
+        ("Case B: Retained / Loyal Customer (Low Churn Probability)", low_risk_idx, "14_shap_waterfall_loyal_customer.png")
+    ]
+
+    for title, idx, filename in cases:
+        cust_prob = y_prob[idx]
+        cust_actual = "Churned (1)" if y_test.iloc[idx] == 1 else "Active (0)"
+        cust_spend = X_test_raw["total_spend"].iloc[idx]
+        cust_delay = X_test_raw["max_delivery_delay"].iloc[idx]
+
+        print(f"\n🔍 {title}:")
+        print(f"   • Predicted Churn Risk: {cust_prob * 100:.1f}% | Actual Status: {cust_actual}")
+        print(f"   • Total Historical Spend: R$ {cust_spend:.2f} | Max Delay: {cust_delay:.1f} days")
+
+        plt.figure(figsize=(10, 6))
+        shap.plots.waterfall(explanation[idx], max_display=10, show=False)
+        plt.title(f"{title}\nPredicted Churn Risk: {cust_prob * 100:.1f}% (Actual: {cust_actual})", 
+                  fontsize=12, fontweight="bold", pad=20)
+        plt.tight_layout()
+
+        save_path = FIGURES_DIR / filename
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
+        print(f"   ✅ Saved Waterfall Plot: {save_path}")
+
 
 def main():
+    if not MODEL_PATH.exists():
+        print(f"❌ Model not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
+        return
+
+    # 1. Load Data
+    customers_path = Path("data/processed/customer_features.parquet")
+    df_customers = pd.read_parquet(customers_path)
+    X, y, num_cols, cat_cols = prepare_features_and_target(df_customers)
+    _, X_test, _, y_test = split_data(X, y)
+
+    # 2. Load Pipeline
+    pipeline = joblib.load(MODEL_PATH)
+    preprocessor = pipeline.named_steps["preprocessor"]
+    xgb_model = pipeline.named_steps["classifier"]
+
+    # 3. Transform & Clean Names
+    X_test_transformed = preprocessor.transform(X_test)
+    raw_feature_names = preprocessor.get_feature_names_out()
+    feature_names = clean_feature_names(raw_feature_names)
+
+    # 4. Predict Probabilities
+    y_prob = pipeline.predict_proba(X_test)[:, 1]
+
+    # 5. Global SHAP
+    explainer = shap.TreeExplainer(xgb_model)
     run_global_shap_analysis(sample_size=3000)
+
+    # 6. Individual Waterfalls
+    plot_individual_waterfalls(explainer, X_test_transformed, feature_names, y_test, y_prob, X_test)
 
 
 if __name__ == "__main__":
