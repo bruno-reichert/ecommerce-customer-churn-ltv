@@ -42,7 +42,6 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFram
     categorical_features = [
         "customer_state",
         "favorite_category",
-        "persona"
     ]
 
     X = df_customers[numerical_features + categorical_features].copy()
