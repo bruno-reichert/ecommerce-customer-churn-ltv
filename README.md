@@ -10,8 +10,7 @@
 
 An end-to-end data science and commercial analytics project analyzing **~100,000 real Brazilian e-commerce orders** from the Olist marketplace. 
 
-This project bridges **Business Administration principles (Customer Lifetime Value, Unit Economics, Churn Mitigation)** with **Applied Machine Learning (K-Means, XGBoost, and SHAP Game Theory)** to diagnose customer attrition, segment customer cohorts, predict churn with an **0.9256 ROC-AUC**, and simulate an optimized retention campaign generating **R$ 1.71 million in net preserved revenue (184.2% ROI)**.
-
+This project bridges **Business Administration principles (Customer Lifetime Value, Unit Economics, Churn Mitigation)** with **Applied Machine Learning (K-Means, XGBoost, and SHAP)** to diagnose customer attrition, segment customer cohorts, and predict churn (test ROC-AUC **0.9256** after removing a leaked feature; see the caveats in Sections 5 and 9), and to simulate a retention campaign under explicitly stated assumptions.
 ---
 
 ## 📑 Table of Contents
@@ -43,7 +42,7 @@ Over **97% of customers made a single purchase and never returned**. Olist was o
 ### Project Goals:
 1. **Diagnose Friction:** Identify which operational variables (delivery delays, freight surcharges, review scores) drive customer attrition.
 2. **Segment the Base:** Uncover natural customer behavioral tiers using **RFM Analysis and K-Means Clustering**.
-3. **Predict Churn:** Train a supervised classifier (**XGBoost**) to identify at-risk customers *before* they leave, strictly avoiding target leakage.
+3. **Predict Churn:** Train a supervised classifier (**XGBoost**) to identify at-risk customers *before* they leave, testing for and removing target leakage (one indirect leak was found and removed; see Section 5).
 4. **Quantify ROI:** Replace arbitrary 0.50 probability thresholds with an **Economic Break-Even Cost Function** to maximize net profit.
 
 ---
@@ -117,7 +116,7 @@ Four core analyses were conducted using Matplotlib and Seaborn (`reports/figures
 * **Basket Value Skew:** Median order spend is **R$ 105.28**, while mean spend is **R$ 159.86** (pulled upward by luxury/multi-item orders up to R$ 13,664).
 * **Financing Dominance:** Credit cards account for **75.9%** of volume, followed by Boleto Bancário at **19.9%**.
 * **The "10x Installment Spike":** While 32.6% pay upfront in 1x, a sharp secondary peak appears at **10 installments (7.0%)**, reflecting Brazilian retail's structural *"10x sem juros"* promotion threshold.
-* **Non-Linear Justification:** Linear Pearson correlations between operational features and churn were weak ($|r| < 0.15$), empirically confirming that churn is driven by complex, non-linear interactions requiring gradient-boosted decision trees.
+* **Weak Linear Signals:** Linear Pearson correlations between operational features and churn were weak ($|r| < 0.15$), which suggests that churn is not explained by simple linear relationships and motivated testing gradient-boosted decision trees.
 
 ---
 
@@ -136,7 +135,8 @@ To move beyond demographic assumptions, we segmented the 93,357 customers based 
 ### Hyperparameter Optimization ($k=4$):
 * Evaluated $k \in [2, 7]$ across Inertia (Within-Cluster Sum of Squares) and Silhouette scores on a representative 15,000-customer sample (`08_kmeans_elbow_silhouette.png`).
 * **The Elbow Inflection:** Inertia dropped sharply from $k=2$ ($190,212$) to $k=3$ ($129,257$) and bent at **$k=4$ ($82,921$)**, after which gains flattened ($k=5$ dropped only to $68,335$).
-* At $k=4$, the model maintains a strong silhouette separation ($~0.40$) while establishing **four actionable commercial personas** (`09_rfm_customer_personas.png`):
+* At $k=4$, the model reaches a moderate silhouette score ($\approx 0.40$) while yielding **four interpretable commercial personas** (`09_rfm_customer_personas.png`):
+> *Note:* "Champions / Loyal VIPs" are the 2,801 repeat buyers. Their average recency is 219.8 days, so the label describes purchase frequency, not current activity.
 
 | Persona Name | Customer Count | Customer Share | Avg Recency | Avg Orders ($F$) | Avg Spend ($M$) | Revenue Share |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -154,7 +154,7 @@ The **At-Risk High Spenders** cohort represents **61.8% of Olist's total histori
 
 ### Experimental Design (`src/model_pipeline.py`)
 * **Stratified Split:** 80% Train (74,685 customers) / 20% Test (18,672 customers), maintaining an exact **59.16% churn distribution** in both partitions.
-* **Leakage Guardrail:** `recency_days`, timestamps, and customer IDs were strictly excluded from the feature matrix $X$.
+* **Leakage Guardrail:** `recency_days`, timestamps, and customer IDs were excluded from the feature matrix $X$. An indirect leak through `persona` was later found and removed (see the case study below). Residual time-proxy risk is discussed in Section 9.
 * **Scikit-Learn `ColumnTransformer`:**
   * Numerical (12 features): `StandardScaler()`
   * Categorical (2 features): `OneHotEncoder(handle_unknown="ignore")` mapping 27 Brazilian states and Top 15 product categories, producing **55 encoded columns**.
@@ -190,7 +190,9 @@ Here is the transparent comparison between the initial (leaked) and final (hones
 | **4. Tuned XGBoost (Honest - Final)** | 55 cols (No Persona) | **84.75%** | **84.80%** | **90.43%** | **87.52%** | **0.9256** |
 
 #### Finding:
-Stripping the leak reduced test accuracy slightly (from 87.7% to **84.75%**) and ROC-AUC from 0.9479 to **0.9256**. However, the remaining signal is **100% legitimate and actionable**: even without knowing how recently a customer bought, operational friction alone predicts churn with **over 92.5% discrimination power**.
+Removing the leaked feature reduced test accuracy from 87.7% to **84.75%** and ROC-AUC from 0.9479 to **0.9256**.
+
+**Caveat:** `recency_days` is excluded from $X$, but the churn label is a direct function of the purchase date, and 97% of customers bought only once. For these customers, "churned" largely means "their single purchase happened more than 180 days before the dataset ended". Operational features such as delivery times, delays and freight vary over calendar time, so they may partly act as proxies for *when* the purchase happened. The 0.9256 ROC-AUC should therefore be read as an **upper bound** on predictive performance until the model is validated with a time-based design (cutoff date, features before it, churn measured over a future window; see Section 9).
 
 ---
 
@@ -208,8 +210,16 @@ Evaluated on **18,672 unseen test customers**:
 
 ### Commercial Threshold Optimization:
 Standard machine learning models default to an arbitrary probability threshold of $p = 0.50$. In business, this is rarely optimal because the cost of errors is asymmetric:
-* **Cost of False Positive ($FP$):** Wasting a retention coupon on someone who was going to stay anyway ($\text{Cost} = \text{R\$ } 15.00$).
-* **Cost of False Negative ($FN$):** Losing a customer forever ($\text{Lost Margin} = \text{Average LTV of R\$ } 165.20 \times 25\% \text{ Win-Back Rate} = \text{R\$ } 41.30$).
+* **Cost of False Positive ($FP$):** Sending a retention coupon to someone who was going to stay anyway (assumed cost: R$ 15.00).
+* **Cost of False Negative ($FN$):** Missing a customer who could have been won back (assumed expected win-back value: average historical spend of R$ 165.20 × an assumed 25% win-back rate = R$ 41.30).
+
+Because a missed churner is assumed to cost **2.75× more** than a coupon, we simulated net preserved revenue across 81 probability thresholds ($p \in [0.10, 0.90]$):
+
+$$\text{Net Preserved Revenue} = (\text{True Positives} \times \text{R\$ } 41.30) - ((\text{True Positives} + \text{False Positives}) \times \text{R\$ } 15.00)$$
+
+* **Finding:** On the test set, the revenue-maximizing threshold was **0.40**, lower than the default 0.50.
+* **Result:** At that threshold the simulated net preserved revenue on the test cohort is **R$ 239,234.20**.
+* **Caveat:** The threshold was selected on the same test set used for reporting, so this figure is optimistic. In production it should be tuned on a separate validation set. The R$ 15 coupon cost and 25% win-back rate are **assumptions**, not measured values.
 
 Because losing a customer costs **$2.75\times$ more** than sending an intervention coupon, we simulated net profit preserved across 81 distinct probability thresholds ($p \in [0.10, 0.90]$):
 
@@ -233,14 +243,16 @@ Using Tree-SHAP (`src/shap_explainability.py`), we computed exact game-theoretic
 
 ### The Counter-Intuitive Freight Finding:
 * On the Beeswarm plot, higher `Total Freight Paid` (red dots) shifted slightly **left** (reducing churn risk), while low freight paid (blue dots) extended far **right** (increasing churn risk).
-* **The Commercial Explanation:** `Total Freight Paid` is a cumulative metric. Loyal, multi-order shoppers naturally accumulate higher total freight over time. Single-purchase churners bought one cheap item, paid minimal freight, and never returned.
+* **Possible Explanations (not tested):**
+  * `Total Freight Paid` is cumulative, so repeat buyers accumulate more freight. However, only 3.0% of customers are repeat buyers, so this likely explains only part of the pattern.
+  * Freight also varies with region, product mix and time period, so it may partly act as a proxy for purchase timing (see Section 9). It should be treated as a hypothesis for follow-up, not a conclusion.
+* On `Avg Freight Ratio` ($\frac{\text{Freight}}{\text{Item Value}}$), high relative freight burdens do push predictions toward churn.
 * Conversely, on `Avg Freight Ratio` ($\frac{\text{Freight}}{\text{Item Value}}$), high relative freight burdens do push customers toward churn.
 
 ### Individual Customer Diagnostic Waterfalls:
-* **Case A: The At-Risk High Spender (`13_shap_waterfall_at_risk_customer.png`):**
-  * Predicted Churn Risk: **86.1%** (Ground Truth: Churned).
-  * Historical Spend: R$ 335.18 | Delivery was 11.5 days early!
-  * *Why did they churn?* **Silent / Organic Dormancy.** The waterfall plot reveals that large basket complexity (`Total Items Bought = 1.31` pushing $+0.64$) and single-purchase inactivity drove churn. Even satisfied customers leave if marketing provides no re-engagement.
+* **Case A: An At-Risk High Spender (`13_shap_waterfall_at_risk_customer.png`):**
+  * Predicted churn risk: **86.1%** (ground truth: churned). Historical spend: R$ 335.18; delivery arrived 11.5 days early.
+  * The waterfall shows that basket-related features (`Total Items Bought = 1.31`, contribution $+0.64$) and the absence of repeat purchases pushed the score up. This is a single illustrative case: SHAP explains the model's prediction, not the customer's actual reasons for leaving.
 * **Case B: The Retained / Loyal Customer (`14_shap_waterfall_loyal_customer.png`):**
   * Predicted Churn Risk: **1.5%** (Ground Truth: Active).
   * The waterfall plot displays a continuous cascade of **blue downward arrows** led by accumulated freight ($-2.34$), low basket size, and fast transit ($-0.42$), pulling the score from baseline $+0.386$ down to $-4.165$.
@@ -249,43 +261,41 @@ Using Tree-SHAP (`src/shap_explainability.py`), we computed exact game-theoretic
 
 ## 8. Financial Simulation & P&L Impact Analysis
 
-To conclude the project, we executed an automated financial simulation (`src/financial_simulation.py`) across all **93,357 customers**, comparing three strategic scenarios:
+To conclude the project, we ran a simulation (`src/financial_simulation.py`) comparing three strategies on the **held-out test set**. All figures depend on assumed parameters (R$ 15 coupon cost, 25% win-back rate) and use **historical spend as a proxy for customer value**, so they illustrate relative efficiency rather than forecast real profit.
 
-### Macro Strategy Comparison:
-1. **Strategy 1: Status Quo (Do Nothing):** Zero cost, zero preserved revenue. 55,232 customers churn unchecked.
-2. **Strategy 2: Blanket "Spray-and-Pray" Marketing:** Blindly sends an automated R$ 15 discount coupon to all 93,357 accounts. Burns **R$ 1,400,355 in marketing budget**, preserving R$ 880,710 in net value (**62.9% ROI**).
-3. **Strategy 3: ML-Targeted Precision (Our XGBoost Model @ 0.40/0.44 Threshold):**
-   * Surgically targets **62,180 customers** exhibiting $\ge 44\%$ churn probability.
-   * Reduces marketing spend to **R$ 932,700** (saving **R$ 467,655 in wasted coupons**).
-   * Generates **R$ 1,718,261 in Net Profit Preserved**.
-   * **ROI: 184.2%** (nearly **triples** the marketing efficiency of blanket campaigns!).
+Both targeted strategies are credited by the same rule: *25% of the historical spend of targeted customers who actually churned, minus R$ 15 per targeted customer.*
+
+1. **Strategy 1: Status Quo:** No spend, no customers recovered.
+2. **Strategy 2: Blanket Coupons:** R$ 15 to every customer. Spend: **R$ [A]**. Net revenue preserved: **R$ [B]** (ROI **[C]%**).
+3. **Strategy 3: Model-Targeted (threshold [t]):** Targets **[N]** customers. Spend: **R$ [D]**. Net revenue preserved: **R$ [E]** (ROI **[F]%**).
+
+*[One sentence stating the honest result, e.g. "The targeted strategy achieves higher ROI with lower spend" or "Blanket preserves more total revenue but at lower ROI". Write whichever the numbers show.]*
 
 ### Breakdown by Customer Persona (`15_financial_simulation_roi.png`):
 
-| Persona | Total Customers | Customers Targeted | % Targeted | Avg LTV | Campaign Spend | Net Profit Preserved | Program ROI |
+| Persona | Total Customers | Customers Targeted | % Targeted | Avg LTV | Campaign Spend | Net Revenue Preserved (assumed) | Program ROI |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Active / Recent Buyers** | 16,026 | 2,761 | 17.2% | R$ 133.66 | R$ 41,415 | **R$ 50,847** | **122.8%** |
 | **At-Risk High Spenders** | 32,270 | 25,115 | 77.8% | R$ 295.51 | R$ 376,725 | **R$ 1,478,708** | **392.5%** |
 | **Champions / Loyal VIPs** | 2,801 | 1,977 | 70.6% | R$ 308.59 | R$ 29,655 | **R$ 122,865** | **414.3%** |
 | **Lost / Hibernating** | 42,260 | 32,327 | 76.5% | R$ 68.15 | R$ 484,905 | **R$ 65,841** | **13.6%** |
 
-### Strategic P&L Recommendations:
+### Strategic Recommendations (illustrative, assumption-dependent):
 1. **Focus 85%+ of Retention Budget on At-Risk High Spenders & VIPs:** These two groups generate **R$ 1.60M out of the R$ 1.72M in net profit** with ROIs exceeding **390% to 410%**.
-2. **Cease Paid Couponing for Lost / Hibernating Shoppers:** Targeting the dormant segment only yields a marginal **13.6% ROI** while consuming over R$ 484k in capital. Shift this group to zero-cost organic email re-engagement.
+2. **Reconsider paid couponing for Lost / Hibernating Shoppers:** Targeting the dormant segment only yields a marginal **13.6% ROI** while consuming over R$ 484k in capital. Shift this group to zero-cost organic email re-engagement.
 3. **Protect at-risk Active Buyers:** The model flags 17.2% of recent buyers who experienced delivery delays. Intervening early saves R$ 50k in profit before they slip into hibernation.
 
 ---
 
 ## 9. Methodological Limitations & Production Recommendations
 
-To maintain complete scientific rigor, the following real-world limitations and architectural enhancements should be noted:
-
-1. **Static Snapshot vs. Rolling Observation Window:**
-   * *Limitation:* Features and target were computed over the full historical period. In a live enterprise environment, features should be computed over a historical window (e.g., $T_0 \rightarrow T_{\text{cutoff}}$) and churn evaluated over a future observation window (e.g., $T_{\text{cutoff}} \rightarrow T_{\text{cutoff}} + 90\text{d}$).
-2. **Historical Spend as LTV Proxy:**
-   * *Limitation:* The simulation uses historical cumulative spend as a proxy for customer value. A full production implementation would integrate a predictive Gamma-Gamma / BG-NBD model to estimate *future* residual cash flows.
-3. **Promotional Assumptions:**
-   * *Limitation:* The R$ 15 coupon cost and 25% win-back rate are industry-standard retail benchmarks. In production, these parameters should be calibrated via randomized **A/B testing**.
+1. **Static snapshot and possible time proxies (most important):**
+   * Features and the churn label were computed over the same full period, and the label is a function of purchase date. Since 97% of customers bought once, delivery, freight and category features may partly encode *when* the purchase happened, so the reported ROC-AUC (0.9256) is likely an upper bound. A production design would compute features up to a cutoff date and measure churn over a future window (e.g., 90 days).
+2. **No temporal validation:** The split is stratified random, not time-based. A time-based split should be used to estimate real-world performance.
+3. **Threshold selected on the test set:** The decision threshold was tuned on the same data used for reporting. It should be tuned on a validation set.
+4. **Simulation scope:** Historical spend is used as a proxy for customer value (revenue, not margin), and the simulation is not an out-of-sample forecast. A full implementation would estimate future value (e.g., BG/NBD + Gamma-Gamma).
+5. **Assumed parameters:** The R$ 15 coupon cost and 25% win-back rate are assumptions. They should be calibrated with randomized A/B tests.
+6. **Interpretation caveats:** SHAP values describe the model's behavior, not causal reasons for churn. The freight finding is a hypothesis.
 
 ---
 
