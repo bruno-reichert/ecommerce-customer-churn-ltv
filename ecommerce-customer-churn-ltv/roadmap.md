@@ -105,8 +105,8 @@
 ### 📦 Phase 6: Executive Deliverables & Portfolio Showcase
 > **Goal:** Package the repository with clean code, reproducible notebooks, and an executive README.
 
-- [ ] **6.1 Refactoring & Quality:**
+- [X] **6.1 Refactoring & Quality:**
   - Organize reusable pipeline functions in `src/` (`data_loader.py`, `features.py`, `models.py`).
   - Add unit tests with `pytest` verifying data transformations and schema invariants.
-- [ ] **6.2 Executive Presentation & README:**
+- [X] **6.2 Executive Presentation & README:**
   - Summary of business problem, methodology, data schema diagram, top model performance metrics, and strategic recommendations for retail executives.
