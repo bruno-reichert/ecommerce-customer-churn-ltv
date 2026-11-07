@@ -97,7 +97,7 @@
   - Generate SHAP Summary Beeswarm plots to identify what drives churn company-wide (e.g., does freight cost outweigh delivery delay?).
 - [X] **5.2 Individual Customer Explainability (Waterfall Plots):**
   - Show how the model explains risk for a specific high-LTV customer.
-- [ ] **5.3 Financial Simulation & ROI Calculation:**
+- [X] **5.3 Financial Simulation & ROI Calculation:**
   - Calculate the monetary impact: *"If retention campaigns save 15% of at-risk customers in Cluster A, what is the net revenue preserved for Olist?"*
 
 ---

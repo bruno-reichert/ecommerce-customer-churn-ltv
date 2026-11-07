@@ -39,7 +39,7 @@ def run_financial_simulation(df_customers: pd.DataFrame, pipeline) -> pd.DataFra
     df["churn_prob"] = pipeline.predict_proba(X)[:, 1]
 
     # Optimal commercial threshold identified in Phase 4.4
-    OPTIMAL_THRESHOLD = 0.44
+    OPTIMAL_THRESHOLD = 0.40
     COUPON_COST = 15.00       # Cost per outreach/voucher (R$)
     WIN_BACK_RATE = 0.25      # Conservative 25% retention success rate
 

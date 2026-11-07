@@ -1,0 +1,30 @@
+{
+    "output": {
+      "filePath": "repomix-output.xml",
+      "style": "xml",
+      "removeComments": false,
+      "removeEmptyLines": true,
+      "topFilesLength": 10
+    },
+    "ignore": {
+      "useGitignore": true,
+      "useDefaultPatterns": true,
+      "customPatterns": [
+        ".venv/**",
+        "venv/**",
+        "__pycache__/**",
+        "data/**",
+        "models/**",
+        "reports/**",
+        "*.parquet",
+        "*.csv",
+        "*.joblib",
+        "*.pkl",
+        "*.png",
+        "*.jpg",
+        "*.pbix",
+        "*.lock",
+        "uv.lock"
+      ]
+    }
+  }
