@@ -33,21 +33,21 @@
 ---
 
 ### 🧮 Phase 2: Core DAX Metric Engine
-- [ ] **2.1 Base Measures Table Setup:**
+- [X] **2.1 Base Measures Table Setup:**
   - Create a disconnected table named `_Measures` to house all business calculations cleanly.
-- [ ] **2.2 Volume & Revenue Measures:**
+- [X] **2.2 Volume & Revenue Measures:**
   - `[Total GMV]` $= \sum(\text{Payment Value})$
   - `[Total Orders]` $= \text{DISTINCTCOUNT}(\text{order\_id})$
   - `[Total Customers]` $= \text{DISTINCTCOUNT}(\text{customer\_unique\_id})$
   - `[Avg Order Value (AOV)]` $= \text{[Total GMV]} / \text{[Total Orders]}$
-- [ ] **2.3 Retention & Friction Diagnostics:**
+- [X] **2.3 Retention & Friction Diagnostics:**
   - `[Repeat Buyer Count]` (Customers with $> 1$ order)
   - `[Repeat Customer Rate %]` (Repeat Customers / Total Customers)
   - `[Churn Rate %]` (Churned Customers / Total Customers)
   - `[Late Delivery Rate %]` (Orders where `is_late_delivery = 1` / Total Orders)
   - `[Avg Delivery Lead Time]` $= \text{AVERAGE}(\text{actual\_delivery\_days})$
   - `[Avg Review Score]` $= \text{AVERAGE}(\text{review\_score})$
-- [ ] **2.4 ML Churn & Financial Simulation Measures:**
+- [X] **2.4 ML Churn & Financial Simulation Measures:**
   - `[Customers At-Risk]` (Count of customers flagged for campaign intervention)
   - `[Campaign Cost]` $= \text{[Customers At-Risk]} \times \text{R\$\ } 15.00$
   - `[Gross Preserved LTV]` $= \text{[Customers At-Risk]} \times 25\% \times \text{[Customer Avg Spend]}$
