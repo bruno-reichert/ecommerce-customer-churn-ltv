@@ -59,10 +59,10 @@
 ### 🎨 Phase 3: Dashboard Architecture & Page Design
 
 #### 📊 Page 1: Executive Overview & Commercial Health
-- [ ] **Header KPI Cards:** Total GMV, Total Unique Customers, Repeat Purchase Rate (3.0%), Baseline Churn Rate (59.2%).
-- [ ] **Visual 1.1:** Monthly Order Volume & GMV Growth (Clustered Column + Line Chart highlighting Black Friday 2017).
-- [ ] **Visual 1.2:** Customer Persona Contribution (Donut or Tree Map: Customer Volume % vs. Revenue Contribution %).
-- [ ] **Visual 1.3:** The Revenue Concentration Reality (Card/Callout showing *At-Risk High Spenders* control 61.8% of GMV).
+- [X] **Header KPI Cards:** Total GMV, Total Unique Customers, Repeat Purchase Rate (3.0%), Baseline Churn Rate (59.2%).
+- [X] **Visual 1.1:** Monthly Order Volume & GMV Growth (Clustered Column + Line Chart highlighting Black Friday 2017).
+- [X] **Visual 1.2:** Customer Persona Contribution (Donut or Tree Map: Customer Volume % vs. Revenue Contribution %).
+- [X] **Visual 1.3:** The Revenue Concentration Reality (Card/Callout showing *At-Risk High Spenders* control 61.8% of GMV).
 
 #### 🚚 Page 2: Logistics Friction & Customer Backlash
 - [ ] **Header KPI Cards:** Avg Delivery Days (12.5d), Late Delivery Rate (%), Avg Review Score (4.15★).
