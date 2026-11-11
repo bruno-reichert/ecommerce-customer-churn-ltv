@@ -65,8 +65,8 @@
 - [X] **Visual 1.3:** The Revenue Concentration Reality (Card/Callout showing *At-Risk High Spenders* control 61.8% of GMV).
 
 #### 🚚 Page 2: Logistics Friction & Customer Backlash
-- [ ] **Header KPI Cards:** Avg Delivery Days (12.5d), Late Delivery Rate (%), Avg Review Score (4.15★).
-- [ ] **Visual 2.1 (The Logistics Cliff):** Clustered Column + Line combo plotting Delivery Delay Buckets vs. Avg Review Score & % of 1-Star Reviews (proving the $>3$ day breaking point).
+- [X] **Header KPI Cards:** Avg Delivery Days (12.5d), Late Delivery Rate (%), Avg Review Score (4.15★).
+- [X] **Visual 2.1 (The Logistics Cliff):** Clustered Column + Line combo plotting Delivery Delay Buckets vs. Avg Review Score & % of 1-Star Reviews (proving the $>3$ day breaking point).
 - [ ] **Visual 2.2 (Regional Disparities):** Brazilian Map / Bar Chart comparing Southeast vs. North/Northeast delivery lead times and freight surcharges.
 - [ ] **Visual 2.3 (Shipping Burden):** Scatter plot or grouped bar of Freight Ratio vs. Review Score.
 
