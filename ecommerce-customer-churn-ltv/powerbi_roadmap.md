@@ -71,10 +71,10 @@
 - [X] **Visual 2.3 (Shipping Burden):** Scatter plot or grouped bar of Freight Ratio vs. Review Score.
 
 #### 🤖 Page 3: Machine Learning Retention & ROI Simulator
-- [ ] **Header KPI Cards:** Targeted Customers, ML Campaign Cost, Net Revenue Preserved, Campaign ROI (184.2%).
-- [ ] **Visual 3.1 (Strategic Comparison):** Grouped Bar Chart comparing **Status Quo** (R$ 0) vs. **Blanket Marketing** (62.9% ROI) vs. **ML-Targeted Precision** (184.2% ROI).
-- [ ] **Visual 3.2 (Persona ROI Breakdown):** Bar chart showing Net Profit and ROI % across the 4 RFM personas (demonstrating why *Lost / Hibernating* should be skipped).
-- [ ] **Visual 3.3 (High-Value Action Table):** Interactive grid of top at-risk customers (ID, Persona, Historical Spend, Churn Probability, Recommended Action).
+- [X] **Header KPI Cards:** Targeted Customers, ML Campaign Cost, Net Revenue Preserved, Campaign ROI (184.2%).
+- [X] **Visual 3.1 (Strategic Comparison):** Grouped Bar Chart comparing **Status Quo** (R$ 0) vs. **Blanket Marketing** (62.9% ROI) vs. **ML-Targeted Precision** (184.2% ROI).
+- [X] **Visual 3.2 (Persona ROI Breakdown):** Bar chart showing Net Profit and ROI % across the 4 RFM personas (demonstrating why *Lost / Hibernating* should be skipped).
+- [X] **Visual 3.3 (High-Value Action Table):** Interactive grid of top at-risk customers (ID, Persona, Historical Spend, Churn Probability, Recommended Action).
 
 ---
 
