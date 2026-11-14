@@ -79,15 +79,15 @@
 ---
 
 ### 🎛️ Phase 4: UX, Interactivity & Visual Polish
-- [ ] **4.1 Unified Theme & Corporate Palette:**
+- [X] **4.1 Unified Theme & Corporate Palette:**
   - Primary Navy: `#2c3e50` | Accent Blue: `#2980b9`
   - Success Green: `#27ae60` | Warning Amber: `#f39c12` | Alert Red: `#e74c3c`
   - Clean card borders, standardized fonts (Segoe UI), consistent padding.
-- [ ] **4.2 Global Slicer Navigation:**
+- [X] **4.2 Global Slicer Navigation:**
   - Date Range Slicer (tied to `dim_date`).
   - Customer Persona Slicer.
   - State / Region Slicer.
-- [ ] **4.3 Tooltips & Drill-throughs:**
+- [X] **4.3 Tooltips & Drill-throughs:**
   - Create a custom Tooltip page showing RFM distribution when hovering over any Persona.
   - Drill-through capability from State down to City level.
 
