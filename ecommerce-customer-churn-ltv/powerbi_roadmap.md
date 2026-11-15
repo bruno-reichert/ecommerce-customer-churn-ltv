@@ -94,9 +94,9 @@
 ---
 
 ### 📦 Phase 5: Documentation & Portfolio Artifacts
-- [ ] **5.1 File Archival:** Save clean `.pbix` file into `reports/powerbi/`.
-- [ ] **5.2 Export High-Res Presentation Assets:**
+- [X] **5.1 File Archival:** Save clean `.pbix` file into `reports/powerbi/`.
+- [X] **5.2 Export High-Res Presentation Assets:**
   - Export multi-page executive summary PDF.
   - Capture high-resolution PNGs of each dashboard page.
-- [ ] **5.3 Documentation:**
+- [X] **5.3 Documentation:**
   - Add Power BI Architecture section and visuals to root `README.md`.
