@@ -1,10 +1,13 @@
 import sys
 from pathlib import Path
+# Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
 import pandas as pd
 import numpy as np
+from typing import Tuple, Dict, Any
+
 
 # Headless rendering backend
 import matplotlib
@@ -21,147 +24,191 @@ from sklearn.metrics import (
     classification_report
 )
 
+from src.config import (
+    DATA_PROCESSED,
+    MODELS_DIR,
+    FIGURES_DIR,
+    COUPON_COST,
+    BASE_WIN_BACK_RATE
+)
 from src.model_pipeline import (
     prepare_features_and_target,
-    split_data
+    split_data_chronological
 )
 
-FIGURES_DIR = Path("reports/figures")
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-MODEL_PATH = Path("models/best_xgboost_churn_pipeline.joblib")
+MODEL_PATH = MODELS_DIR / "best_xgboost_churn_pipeline.joblib"
 
 
-def plot_evaluation_dashboard(y_test: pd.Series, y_pred: np.ndarray, y_prob: np.ndarray) -> None:
+def find_optimal_business_threshold(y_val: pd.Series, y_val_prob: np.ndarray, avg_churner_ltv: float) -> Tuple[float, float]:
     """
-    Generates a 4-panel executive model evaluation dashboard:
-    1. Annotated Confusion Matrix
-    2. Receiver Operating Characteristic (ROC) Curve
-    3. Precision-Recall Curve
-    4. Business Cost/Benefit Threshold Simulation
+    Simulates commercial net profit across thresholds strictly on the VALIDATION SET.
+    Returns (optimal_threshold, max_validation_net_profit).
     """
-    print("\n--- Generating 4-Panel Model Evaluation Dashboard ---")
+    thresholds = np.linspace(0.10, 0.99, 90)
+    net_values = []
 
+    # Net value preserved per True Positive (saved churner)
+    ltv_saved_unit = avg_churner_ltv * BASE_WIN_BACK_RATE
+
+    for t in thresholds:
+        preds = (y_val_prob >= t).astype(int)
+        # Honest credit: only actual churners who were targeted and saved
+        tp = np.sum((preds == 1) & (y_val == 1))
+        fp = np.sum((preds == 1) & (y_val == 0))
+
+        gross_value = tp * ltv_saved_unit
+        total_campaign_cost = (tp + fp) * COUPON_COST
+        net_profit = gross_value - total_campaign_cost
+        net_values.append(net_profit)
+
+    best_idx = int(np.argmax(net_values))
+    optimal_threshold = float(thresholds[best_idx])
+    max_val_savings = float(net_values[best_idx])
+
+    return optimal_threshold, max_val_savings
+
+
+def evaluate_on_unseen_test(
+    pipeline,
+    X_val: pd.DataFrame,
+    y_val: pd.Series,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    avg_churner_ltv: float
+) -> Dict[str, Any]:
+    """
+    1. Tunes threshold on validation set.
+    2. Evaluates performance on unseen test set using the tuned threshold.
+    3. Produces evaluation plots.
+    """
+    print("\n" + "=" * 65)
+    print("🎯 PRODUCTION MODEL EVALUATION (Tuned on Val, Tested on Test)")
+    print("=" * 65)
+
+    y_val_prob = pipeline.predict_proba(X_val)[:, 1]
+    y_test_prob = pipeline.predict_proba(X_test)[:, 1]
+
+    # 1. Tune Threshold on Validation Set ONLY
+    optimal_thresh, val_profit = find_optimal_business_threshold(y_val, y_val_prob, avg_churner_ltv)
+    print(f"📌 Optimal Business Threshold (Tuned on Validation Set): {optimal_thresh:.2f}")
+    print(f"   (Validation Net Profit Preserved at {optimal_thresh:.2f}: R$ {val_profit:,.2f})")
+
+    # 2. Apply Locked-In Threshold to Unseen Test Set
+    y_test_pred = (y_test_prob >= optimal_thresh).astype(int)
+
+    test_auc = roc_auc_score(y_test, y_test_prob)
+    test_pr_auc = average_precision_score(y_test, y_test_prob)
+
+    # Calculate commercial impact on test set with locked threshold
+    tp_test = np.sum((y_test_pred == 1) & (y_test == 1))
+    fp_test = np.sum((y_test_pred == 1) & (y_test == 0))
+    test_targeted = tp_test + fp_test
+    test_gross = tp_test * avg_churner_ltv * BASE_WIN_BACK_RATE
+    test_cost = test_targeted * COUPON_COST
+    test_net = test_gross - test_cost
+    test_roi = (test_net / test_cost * 100) if test_cost > 0 else 0.0
+
+    print(f"\n📊 UNSEEN TEST SET METRICS (Locked Threshold = {optimal_thresh:.2f}):")
+    print(f"   • Test ROC-AUC:            {test_auc:.4f}")
+    print(f"   • Test PR-AUC:             {test_pr_auc:.4f}")
+    print(f"   • Customers Targeted:      {test_targeted:,} / {len(y_test):,}")
+    print(f"   • Campaign Cost:           R$ {test_cost:,.2f}")
+    print(f"   • Honest Gross Preserved:  R$ {test_gross:,.2f}")
+    print(f"   • Net Profit Preserved:    R$ {test_net:,.2f}")
+    print(f"   • Campaign ROI:            {test_roi:.1f}%")
+
+    # ==========================================
+    # 3. 4-Panel Evaluation Plot
+    # ==========================================
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
-    # ==========================================
-    # 1. Confusion Matrix
-    # ==========================================
-    cm = confusion_matrix(y_test, y_pred)
+    # Panel 1: Confusion Matrix
+    cm = confusion_matrix(y_test, y_test_pred)
     cm_pct = cm / cm.sum() * 100
-
-    # Annotate with both raw count and percentage
     annot_matrix = np.array([
         [f"{cm[0,0]:,}\n({cm_pct[0,0]:.1f}%)", f"{cm[0,1]:,}\n({cm_pct[0,1]:.1f}%)"],
         [f"{cm[1,0]:,}\n({cm_pct[1,0]:.1f}%)", f"{cm[1,1]:,}\n({cm_pct[1,1]:.1f}%)"]
     ])
-
     sns.heatmap(
         cm, annot=annot_matrix, fmt="", cmap="Blues", cbar=False, ax=ax1,
         xticklabels=["Predicted Active", "Predicted Churn"],
         yticklabels=["Actual Active", "Actual Churn"],
         annot_kws={"fontsize": 12, "fontweight": "bold"}
     )
-    ax1.set_title("Confusion Matrix (Unseen Test Set: 18,672 Customers)", pad=15)
+    ax1.set_title(f"Test Confusion Matrix (Threshold = {optimal_thresh:.2f})", pad=15)
 
-    # ==========================================
-    # 2. ROC Curve
-    # ==========================================
-    fpr, tpr, _ = roc_curve(y_test, y_prob)
-    auc_score = roc_auc_score(y_test, y_prob)
+    # Panel 2: ROC Curve
+    fpr, tpr, _ = roc_curve(y_test, y_test_prob)
+    ax2.plot(fpr, tpr, color="#2980b9", linewidth=2.5, label=f"XGBoost (AUC = {test_auc:.4f})")
+    ax2.plot([0, 1], [0, 1], color="#7f8c8d", linestyle="--", label="Random Baseline (0.50)")
+    ax2.set_title("Test Set ROC Curve", pad=15)
+    ax2.set_xlabel("False Positive Rate", labelpad=10, fontweight="bold")
+    ax2.set_ylabel("True Positive Rate", labelpad=10, fontweight="bold")
+    ax2.legend(loc="lower right")
 
-    ax2.plot(fpr, tpr, color="#2980b9", linewidth=2.5, label=f"Tuned XGBoost (AUC = {auc_score:.4f})")
-    ax2.plot([0, 1], [0, 1], color="#7f8c8d", linestyle="--", label="Random Baseline (AUC = 0.5000)")
-    ax2.set_title("Receiver Operating Characteristic (ROC) Curve", pad=15)
-    ax2.set_xlabel("False Positive Rate (1 - Specificity)", labelpad=10, fontweight="bold")
-    ax2.set_ylabel("True Positive Rate (Recall)", labelpad=10, fontweight="bold")
-    ax2.legend(loc="lower right", frameon=True)
+    # Panel 3: Precision-Recall Curve
+    prec, rec, _ = precision_recall_curve(y_test, y_test_prob)
+    ax3.plot(rec, prec, color="#27ae60", linewidth=2.5, label=f"XGBoost (PR-AUC = {test_pr_auc:.4f})")
+    ax3.axhline(y_test.mean(), color="#e74c3c", linestyle=":", label=f"Baseline ({y_test.mean()*100:.1f}%)")
+    ax3.set_title("Test Set Precision-Recall Curve", pad=15)
+    ax3.set_xlabel("Recall", labelpad=10, fontweight="bold")
+    ax3.set_ylabel("Precision", labelpad=10, fontweight="bold")
+    ax3.legend(loc="lower left")
 
-    # ==========================================
-    # 3. Precision-Recall Curve
-    # ==========================================
-    precisions, recalls, pr_thresholds = precision_recall_curve(y_test, y_prob)
-    avg_precision = average_precision_score(y_test, y_prob)
+    # Panel 4: Validation Set Threshold Optimization Curve
+    val_thresholds = np.linspace(0.10, 0.99, 90)
+    val_nets = []
+    for t in val_thresholds:
+        preds = (y_val_prob >= t).astype(int)
+        tp = np.sum((preds == 1) & (y_val == 1))
+        fp = np.sum((preds == 1) & (y_val == 0))
+        val_nets.append((tp * avg_churner_ltv * BASE_WIN_BACK_RATE) - ((tp + fp) * COUPON_COST))
 
-    ax3.plot(recalls, precisions, color="#27ae60", linewidth=2.5, label=f"XGBoost (PR-AUC = {avg_precision:.4f})")
-    ax3.axhline(y_test.mean(), color="#e74c3c", linestyle=":", label=f"No-Skill Baseline ({y_test.mean()*100:.1f}%)")
-    ax3.set_title("Precision-Recall Curve", pad=15)
-    ax3.set_xlabel("Recall (Fraction of Lost Customers Caught)", labelpad=10, fontweight="bold")
-    ax3.set_ylabel("Precision (Accuracy of Churn Alarms)", labelpad=10, fontweight="bold")
-    ax3.legend(loc="lower left", frameon=True)
-
-    # ==========================================
-    # 4. Business Cost/Benefit Threshold Simulation
-    # ==========================================
-    # Business Assumptions:
-    # - Average Churned Customer Value (Lost LTV) = R$ 165.20
-    # - Retention Campaign Intervention Cost (Discount Voucher / Outreach) = R$ 15.00
-    # - Success rate of saving an identified at-risk customer = 25% (Industry benchmark)
-    
-    LTV_SAVED_VALUE = 165.20 * 0.25 # Net value preserved per True Positive = R$ 41.30
-    INTERVENTION_COST = 15.00        # Cost per predicted churner (TP + FP)
-
-    thresholds = np.linspace(0.10, 0.90, 81)
-    net_values = []
-
-    for t in thresholds:
-        preds = (y_prob >= t).astype(int)
-        tp = np.sum((preds == 1) & (y_test == 1))
-        fp = np.sum((preds == 1) & (y_test == 0))
-        
-        gross_value = tp * LTV_SAVED_VALUE
-        total_campaign_cost = (tp + fp) * INTERVENTION_COST
-        net_profit_saved = gross_value - total_campaign_cost
-        net_values.append(net_profit_saved)
-
-    best_idx = np.argmax(net_values)
-    best_threshold = thresholds[best_idx]
-    max_savings = net_values[best_idx]
-
-    ax4.plot(thresholds, net_values, color="#8e44ad", linewidth=2.5)
-    ax4.axvline(best_threshold, color="#e74c3c", linestyle="--", linewidth=2, 
-                label=f"Optimal Business Threshold: {best_threshold:.2f}\n(Net Preserved: R$ {max_savings:,.0f})")
-    ax4.axvline(0.50, color="#7f8c8d", linestyle=":", label="Default Threshold: 0.50")
-    ax4.set_title("Commercial ROI Simulation: Net Value Preserved vs. Threshold", pad=15)
-    ax4.set_xlabel("Churn Probability Decision Threshold", labelpad=10, fontweight="bold")
+    ax4.plot(val_thresholds, val_nets, color="#8e44ad", linewidth=2.5)
+    ax4.axvline(optimal_thresh, color="#e74c3c", linestyle="--", linewidth=2,
+                label=f"Val Optimal: {optimal_thresh:.2f}")
+    ax4.set_title("Validation Set Threshold Optimization", pad=15)
+    ax4.set_xlabel("Decision Threshold", labelpad=10, fontweight="bold")
     ax4.set_ylabel("Net Preserved Value (R$)", fontweight="bold")
-    ax4.legend(loc="lower center", frameon=True)
+    ax4.legend(loc="lower center")
 
-    plt.suptitle("XGBoost Production Evaluation: Technical Precision & Commercial Impact", fontsize=16, fontweight="bold", y=1.02)
+    plt.suptitle("XGBoost Evaluation: Validation-Tuned Threshold Applied to Unseen Test Set", fontsize=15, fontweight="bold", y=1.02)
     fig.tight_layout()
 
     save_path = FIGURES_DIR / "10_model_evaluation_dashboard.png"
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✅ Saved Evaluation Dashboard: {save_path}")
+    print(f"💾 Saved updated evaluation dashboard: {save_path}")
 
-    # Print classification report
-    print("\n📋 CLASSIFICATION REPORT (Default 0.50 Threshold):")
-    print(classification_report(y_test, y_pred, target_names=["Active (0)", "Churned (1)"]))
-
-    print(f"💡 COMMERCIAL STRATEGY RECOMMENDATION:")
-    print(f"   • Standard ML Threshold: 0.50 (Assumes false positives and false negatives cost the same).")
-    print(f"   • Optimal Commercial Threshold: {best_threshold:.2f}")
-    print(f"   • Executing retention campaigns at threshold {best_threshold:.2f} maximizes net profit preserved at R$ {max_savings:,.2f} on the test cohort alone!")
+    return {
+        "optimal_threshold": optimal_thresh,
+        "test_roc_auc": round(test_auc, 4),
+        "test_pr_auc": round(test_pr_auc, 4),
+        "test_targeted": int(test_targeted),
+        "test_campaign_cost": round(test_cost, 2),
+        "test_gross_preserved": round(test_gross, 2),
+        "test_net_profit": round(test_net, 2),
+        "test_roi_pct": round(test_roi, 2)
+    }
 
 
 def main():
     if not MODEL_PATH.exists():
-        print(f"❌ Trained model not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
+        print(f"❌ Model artifact not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
         return
 
-    customers_path = Path("data/processed/customer_features.parquet")
+    customers_path = DATA_PROCESSED / "customer_features.parquet"
     df_customers = pd.read_parquet(customers_path)
 
-    X, y, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    _, X_test, _, y_test = split_data(X, y)
+    # Average LTV of customers who churned
+    avg_churner_ltv = float(df_customers[df_customers["is_churned"] == 1]["total_spend"].mean())
 
-    print(f"Loading champion model from {MODEL_PATH}...")
+    X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
+    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+
     pipeline = joblib.load(MODEL_PATH)
-
-    y_pred = pipeline.predict(X_test)
-    y_prob = pipeline.predict_proba(X_test)[:, 1]
-
-    plot_evaluation_dashboard(y_test, y_pred, y_prob)
+    evaluate_on_unseen_test(pipeline, X_val, y_val, X_test, y_test, avg_churner_ltv)
 
 
 if __name__ == "__main__":
