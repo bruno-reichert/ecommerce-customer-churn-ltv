@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+from typing import List
+
+# Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
@@ -12,53 +15,61 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from src.config import (
+    DATA_PROCESSED,
+    MODELS_DIR,
+    FIGURES_DIR,
+    RANDOM_SEED
+)
 from src.model_pipeline import (
     prepare_features_and_target,
-    split_data
+    split_data_chronological
 )
 
-FIGURES_DIR = Path("reports/figures")
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-MODEL_PATH = Path("models/best_xgboost_churn_pipeline.joblib")
+MODEL_PATH = MODELS_DIR / "best_xgboost_churn_pipeline.joblib"
 
 
-def clean_feature_names(raw_names: np.ndarray) -> list:
+def clean_feature_names(raw_names: np.ndarray) -> List[str]:
     """
     Cleans Scikit-Learn ColumnTransformer prefixes to make
     feature labels clean and executive-ready for plots.
     e.g., 'num__max_delivery_delay' -> 'Max Delivery Delay'
-          'cat__persona_At-Risk High Spenders' -> 'Persona: At-Risk High Spenders'
+          'cat_state__onehot__customer_state_SP' -> 'State: SP'
+          'cat_group__onehot__favorite_category_bed_bath_table' -> 'Category: Bed Bath Table'
     """
     clean_names = []
     for name in raw_names:
-        # Strip prefixes
-        clean = name.replace("num__", "").replace("cat__", "")
+        clean = name
+        # Remove pipeline transformer prefixes
+        for prefix in ["num__", "cat_group__", "cat_state__", "scaler__", "imputer__", "onehot__", "grouper__"]:
+            clean = clean.replace(prefix, "")
+
         clean = clean.replace("customer_state_", "State: ")
         clean = clean.replace("favorite_category_", "Category: ")
-        clean = clean.replace("persona_", "Persona: ")
         clean = clean.replace("_", " ").title()
         clean_names.append(clean)
     return clean_names
 
 
-def run_global_shap_analysis(sample_size: int = 3000):
+def run_global_shap_analysis(sample_size: int = 2500):
     """
-    Computes Tree-SHAP values on a representative test sample
+    Computes Tree-SHAP values on a representative chronological test sample
     and exports Global Feature Importance and Summary Beeswarm plots.
     """
     print("=" * 65)
-    print("🧠 PHASE 5.1: GLOBAL FEATURE EXPLAINABILITY WITH SHAP")
+    print("🧠 GLOBAL FEATURE EXPLAINABILITY WITH TREE-SHAP (Held-out Test Cohort)")
     print("=" * 65)
 
     if not MODEL_PATH.exists():
-        print(f"❌ Model not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
+        print(f"❌ Model artifact not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
         return
 
-    # 1. Load Data & Split
-    customers_path = Path("data/processed/customer_features.parquet")
+    # 1. Load Data & Chronological Split
+    customers_path = DATA_PROCESSED / "customer_features.parquet"
     df_customers = pd.read_parquet(customers_path)
-    X, y, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    _, X_test, _, y_test = split_data(X, y)
+    X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
+    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
 
     # 2. Load Pipeline Artifact & Dissect Components
     print(f"\nLoading model pipeline from {MODEL_PATH}...")
@@ -67,20 +78,21 @@ def run_global_shap_analysis(sample_size: int = 3000):
     xgb_model = pipeline.named_steps["classifier"]
 
     # 3. Transform X_test through preprocessor and extract clean feature names
-    print("Transforming test set through preprocessor...")
+    print("Transforming chronological test set through preprocessor...")
     X_test_transformed = preprocessor.transform(X_test)
     raw_feature_names = preprocessor.get_feature_names_out()
     feature_names = clean_feature_names(raw_feature_names)
 
     # 4. Take a representative sample for fast, crisp SHAP calculation
-    np.random.seed(42)
-    sample_indices = np.random.choice(len(X_test_transformed), size=min(sample_size, len(X_test_transformed)), replace=False)
+    np.random.seed(RANDOM_SEED)
+    sample_size = min(sample_size, len(X_test_transformed))
+    sample_indices = np.random.choice(len(X_test_transformed), size=sample_size, replace=False)
+
     X_sample = X_test_transformed[sample_indices]
-    
     X_sample_df = pd.DataFrame(X_sample, columns=feature_names)
 
     # 5. Initialize TreeExplainer and calculate SHAP values
-    print(f"Calculating SHAP values for {len(X_sample):,} customers using TreeExplainer...")
+    print(f"Calculating SHAP values for {sample_size:,} test customers using TreeExplainer...")
     explainer = shap.TreeExplainer(xgb_model)
     shap_values = explainer(X_sample_df)
 
@@ -92,17 +104,16 @@ def run_global_shap_analysis(sample_size: int = 3000):
     shap.summary_plot(
         shap_values.values,
         X_sample_df,
-        max_display=15,
+        max_display=12,
         show=False
     )
-    plt.title("SHAP Global Feature Impact on Churn (Direction & Magnitude)", fontsize=14, fontweight="bold", pad=15)
-    plt.xlabel("SHAP Value (Impact on Model Churn Probability)", fontsize=11, fontweight="bold")
+    plt.title("SHAP Feature Impact on Churn Probability (Test Cohort)", fontsize=13, fontweight="bold", pad=15)
+    plt.xlabel("SHAP Value (Impact on Log-Odds of Churn)", fontsize=10, fontweight="bold")
     plt.tight_layout()
-
     beeswarm_path = FIGURES_DIR / "11_shap_summary_beeswarm.png"
     plt.savefig(beeswarm_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✅ Saved Beeswarm Plot: {beeswarm_path}")
+    print(f"💾 Saved Beeswarm Plot: {beeswarm_path}")
 
     # ==========================================
     # Plot 2: Global Mean Absolute Feature Importance (Bar)
@@ -113,23 +124,21 @@ def run_global_shap_analysis(sample_size: int = 3000):
         shap_values.values,
         X_sample_df,
         plot_type="bar",
-        max_display=15,
+        max_display=12,
         color="#2980b9",
         show=False
     )
-    plt.title("Top 15 Most Important Drivers of Customer Churn (Mean |SHAP Value|)", fontsize=14, fontweight="bold", pad=15)
-    plt.xlabel("Mean |SHAP Value| (Average Absolute Impact)", fontsize=11, fontweight="bold")
+    plt.title("Top Strategic Drivers of Customer Churn (Mean |SHAP Value|)", fontsize=13, fontweight="bold", pad=15)
+    plt.xlabel("Mean |SHAP Value| (Average Absolute Impact)", fontsize=10, fontweight="bold")
     plt.tight_layout()
-
     bar_path = FIGURES_DIR / "12_shap_feature_importance_bar.png"
     plt.savefig(bar_path, dpi=300, bbox_inches="tight")
     plt.close()
-    print(f"✅ Saved Feature Importance Bar Plot: {bar_path}")
+    print(f"💾 Saved Feature Importance Bar Plot: {bar_path}")
 
     # 6. Extract Top 5 Drivers for Terminal Summary
     mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
     top_driver_indices = np.argsort(mean_abs_shap)[::-1][:5]
-
     print("\n" + "=" * 65)
     print("🏆 TOP 5 STRATEGIC DRIVERS OF OLIST CUSTOMER CHURN:")
     print("=" * 65)
@@ -137,92 +146,9 @@ def run_global_shap_analysis(sample_size: int = 3000):
         print(f"   {rank}. {feature_names[idx]:<30} (Mean Impact: {mean_abs_shap[idx]:.4f})")
     print("=" * 65)
 
-def plot_individual_waterfalls(
-    explainer: shap.TreeExplainer, 
-    X_test_transformed: np.ndarray, 
-    feature_names: list, 
-    y_test: pd.Series, 
-    y_prob: np.ndarray, 
-    X_test_raw: pd.DataFrame
-) -> None:
-    """
-    Generates SHAP Waterfall plots for two contrasting real-world customer archetypes:
-    1. An At-Risk Customer (High probability of churn)
-    2. A Loyal / Retained Customer (Low probability of churn)
-    """
-    print("\n--- Generating Individual Customer Waterfall Plots ---")
-
-    # Create a DataFrame with clean feature names for SHAP
-    X_test_df = pd.DataFrame(X_test_transformed, columns=feature_names)
-
-    # Calculate SHAP Explanation object for the test set
-    explanation = explainer(X_test_df)
-
-    # 1. Identify Case A: High-Risk Customer (High churn prob + spent over R$ 150)
-    high_risk_mask = (y_prob >= 0.85) & (X_test_raw["total_spend"].values >= 150)
-    high_risk_idx = np.where(high_risk_mask)[0][0]
-
-    # 2. Identify Case B: Low-Risk / Retained Customer (Low churn prob)
-    low_risk_mask = (y_prob <= 0.15)
-    low_risk_idx = np.where(low_risk_mask)[0][0]
-
-    cases = [
-        ("Case A: At-Risk Customer (High Churn Probability)", high_risk_idx, "13_shap_waterfall_at_risk_customer.png"),
-        ("Case B: Retained / Loyal Customer (Low Churn Probability)", low_risk_idx, "14_shap_waterfall_loyal_customer.png")
-    ]
-
-    for title, idx, filename in cases:
-        cust_prob = y_prob[idx]
-        cust_actual = "Churned (1)" if y_test.iloc[idx] == 1 else "Active (0)"
-        cust_spend = X_test_raw["total_spend"].iloc[idx]
-        cust_delay = X_test_raw["max_delivery_delay"].iloc[idx]
-
-        print(f"\n🔍 {title}:")
-        print(f"   • Predicted Churn Risk: {cust_prob * 100:.1f}% | Actual Status: {cust_actual}")
-        print(f"   • Total Historical Spend: R$ {cust_spend:.2f} | Max Delay: {cust_delay:.1f} days")
-
-        plt.figure(figsize=(10, 6))
-        shap.plots.waterfall(explanation[idx], max_display=10, show=False)
-        plt.title(f"{title}\nPredicted Churn Risk: {cust_prob * 100:.1f}% (Actual: {cust_actual})", 
-                  fontsize=12, fontweight="bold", pad=20)
-        plt.tight_layout()
-
-        save_path = FIGURES_DIR / filename
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        plt.close()
-        print(f"   ✅ Saved Waterfall Plot: {save_path}")
-
 
 def main():
-    if not MODEL_PATH.exists():
-        print(f"❌ Model not found at {MODEL_PATH}! Run src/train_xgboost.py first.")
-        return
-
-    # 1. Load Data
-    customers_path = Path("data/processed/customer_features.parquet")
-    df_customers = pd.read_parquet(customers_path)
-    X, y, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    _, X_test, _, y_test = split_data(X, y)
-
-    # 2. Load Pipeline
-    pipeline = joblib.load(MODEL_PATH)
-    preprocessor = pipeline.named_steps["preprocessor"]
-    xgb_model = pipeline.named_steps["classifier"]
-
-    # 3. Transform & Clean Names
-    X_test_transformed = preprocessor.transform(X_test)
-    raw_feature_names = preprocessor.get_feature_names_out()
-    feature_names = clean_feature_names(raw_feature_names)
-
-    # 4. Predict Probabilities
-    y_prob = pipeline.predict_proba(X_test)[:, 1]
-
-    # 5. Global SHAP
-    explainer = shap.TreeExplainer(xgb_model)
-    run_global_shap_analysis(sample_size=3000)
-
-    # 6. Individual Waterfalls
-    plot_individual_waterfalls(explainer, X_test_transformed, feature_names, y_test, y_prob, X_test)
+    run_global_shap_analysis(sample_size=2500)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,17 @@
 import sys
 from pathlib import Path
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 from src.config import (
     DATA_PROCESSED,
@@ -17,17 +20,38 @@ from src.config import (
     TEST_RATIO
 )
 
+class TopCategoriesGrouper(BaseEstimator, TransformerMixin):
+    """
+    Scikit-Learn Transformer that learns the top N most frequent categories
+    from the training set and groups all other/unseen categories into 'other'.
+    Guarantees zero target leakage or snooping into validation/test splits.
+    """
+    def __init__(self, top_n: int = 15):
+        self.top_n = top_n
+        self.top_categories_ = None
+
+    def fit(self, X, y=None):
+        series = pd.Series(np.array(X).ravel())
+        self.top_categories_ = set(series.value_counts().nlargest(self.top_n).index)
+        return self
+
+    def transform(self, X):
+        series = pd.Series(np.array(X).ravel())
+        transformed = series.apply(lambda c: c if c in self.top_categories_ else "other")
+        return transformed.to_numpy().reshape(-1, 1)
+
+    def get_feature_names_out(self, input_features=None):
+        """Passes through the input feature name so ColumnTransformer can label columns cleanly."""
+        if input_features is None:
+            return np.array(["favorite_category"], dtype=object)
+        return np.asarray(input_features, dtype=object)
+
 
 def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series, List[str], List[str]]:
     """
     Separates the target from predictive features, explicitly dropping
     recency and timestamps from X to prevent target data leakage.
-    Returns:
-        X: Feature matrix
-        y: Binary churn target (1 = churned, 0 = repurchased)
-        timestamps: Series of first_purchase_timestamp used exclusively for chronological splitting
-        num_cols: List of numerical column names
-        cat_cols: List of categorical column names
+    Leaves raw categories untouched so the Sklearn pipeline can fit on X_train.
     """
     print("\n--- 1. Separating Features (X) & Target (y) ---")
     df = df_customers.copy()
@@ -35,7 +59,7 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFram
     # Define the target
     y = df["is_churned"].copy()
 
-    # Extract first purchase timestamp strictly for time-based splitting
+    # Extract first purchase timestamp strictly for chronological splitting
     timestamps = pd.to_datetime(df["first_purchase_timestamp"]).copy()
 
     # Explicit list of numerical predictors (behavioral, logistics, spend)
@@ -60,11 +84,8 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFram
         "favorite_category",
     ]
 
+    # Do NOT pre-group favorite_category here; the pipeline will fit it on X_train only!
     X = df[numerical_features + categorical_features].copy()
-
-    # Simplify favorite_category to top 15 categories + 'other' to prevent sparse explosion
-    top_categories = X["favorite_category"].value_counts().nlargest(15).index
-    X["favorite_category"] = X["favorite_category"].apply(lambda c: c if c in top_categories else "other")
 
     print(f"Total Customer Records: {len(X):,}")
     print(f"Numerical Features ({len(numerical_features)}): {', '.join(numerical_features[:4])}...")
@@ -76,14 +97,33 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFram
 
 def build_preprocessor_pipeline(numerical_features: List[str], categorical_features: List[str]) -> ColumnTransformer:
     """
-    Creates a robust Scikit-Learn ColumnTransformer:
-    - Scales numerical features (StandardScaler)
-    - One-hot encodes categorical features (OneHotEncoder)
+    Creates a hermetic Scikit-Learn ColumnTransformer:
+    - Numerical: Median Imputation -> StandardScaler (fitted on X_train only)
+    - State: OneHotEncoder (ignore unknowns)
+    - Category: TopCategoriesGrouper (fitted on X_train only) -> OneHotEncoder
     """
+    # 1. Numerical Sub-Pipeline: Median Imputation -> Scaling
+    num_pipeline = Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler())
+    ])
+
+    # 2. Favorite Category Sub-Pipeline: Top 15 Grouper -> OneHotEncoder
+    category_pipeline = Pipeline([
+        ("grouper", TopCategoriesGrouper(top_n=15)),
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+    ])
+
+    # 3. State Sub-Pipeline: Direct OneHotEncoder
+    state_pipeline = Pipeline([
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+    ])
+
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numerical_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_features)
+            ("num", num_pipeline, numerical_features),
+            ("cat_group", category_pipeline, ["favorite_category"]),
+            ("cat_state", state_pipeline, ["customer_state"])
         ],
         remainder="drop"
     )
@@ -101,17 +141,12 @@ def split_data_chronological(
     """
     Performs a strict Time-Based Chronological Split based on customer arrival
     (first_purchase_timestamp).
-    - Train: earliest arrivals (e.g. 70%)
-    - Validation: middle arrivals (e.g. 15%) - for threshold & hyperparameter tuning
-    - Test: most recent arrivals up to T0 (e.g. 15%) - strictly held-out evaluation
     """
     assert abs((train_ratio + val_ratio + test_ratio) - 1.0) < 1e-5, "Split ratios must sum to 1.0!"
 
     print(f"\n--- 2. Executing Chronological Split ({int(train_ratio*100)}% Train / {int(val_ratio*100)}% Val / {int(test_ratio*100)}% Test) ---")
 
-    # Sort indices chronologically by customer first purchase
     sorted_indices = timestamps.sort_values().index
-
     n_total = len(sorted_indices)
     train_end = int(n_total * train_ratio)
     val_end = int(n_total * (train_ratio + val_ratio))
@@ -140,3 +175,12 @@ if __name__ == "__main__":
         df_customers = pd.read_parquet(cust_path)
         X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
         X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+
+        # Quick validation of the new preprocessor
+        print("\n--- Testing Pipeline Fit on X_train only ---")
+        preprocessor = build_preprocessor_pipeline(num_cols, cat_cols)
+        X_train_trans = preprocessor.fit_transform(X_train)
+        X_test_trans = preprocessor.transform(X_test)
+        print(f"✅ X_train transformed shape: {X_train_trans.shape}")
+        print(f"✅ X_test transformed shape:  {X_test_trans.shape}")
+        print("✅ Pipeline successfully fit on X_train and applied to X_test with zero leakage!")
