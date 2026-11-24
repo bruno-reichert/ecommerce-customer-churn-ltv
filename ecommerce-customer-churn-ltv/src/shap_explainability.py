@@ -1,36 +1,28 @@
 import sys
 from pathlib import Path
-from typing import List
 
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
-import pandas as pd
-import numpy as np
-import shap
 
 # Headless rendering backend
 import matplotlib
+import numpy as np
+import pandas as pd
+import shap
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from src.config import (
-    DATA_PROCESSED,
-    MODELS_DIR,
-    FIGURES_DIR,
-    RANDOM_SEED
-)
-from src.model_pipeline import (
-    prepare_features_and_target,
-    split_data_chronological
-)
+from src.config import DATA_PROCESSED, FIGURES_DIR, MODELS_DIR, RANDOM_SEED
+from src.model_pipeline import prepare_features_and_target, split_data_chronological
 
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_PATH = MODELS_DIR / "best_xgboost_churn_pipeline.joblib"
 
 
-def clean_feature_names(raw_names: np.ndarray) -> List[str]:
+def clean_feature_names(raw_names: np.ndarray) -> list[str]:
     """
     Cleans Scikit-Learn ColumnTransformer prefixes to make
     feature labels clean and executive-ready for plots.
@@ -68,8 +60,8 @@ def run_global_shap_analysis(sample_size: int = 2500):
     # 1. Load Data & Chronological Split
     customers_path = DATA_PROCESSED / "customer_features.parquet"
     df_customers = pd.read_parquet(customers_path)
-    X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+    X, y, timestamps, _num_cols, _cat_cols = prepare_features_and_target(df_customers)
+    _X_train, _X_val, X_test, _y_train, _y_val, _y_test = split_data_chronological(X, y, timestamps)
 
     # 2. Load Pipeline Artifact & Dissect Components
     print(f"\nLoading model pipeline from {MODEL_PATH}...")

@@ -1,12 +1,12 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
-import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # 1. Force the headless, file-only rendering backend (no Tkinter required)
 import matplotlib
+import pandas as pd
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -97,10 +97,10 @@ def plot_monthly_growth_and_gmv(df_orders: pd.DataFrame) -> None:
         f"Black Friday 2017\n{bf_orders:,} Orders\n(R$ {bf_gmv:,.0f}k)",
         xy=(bf_idx, bf_orders),
         xytext=(bf_idx - 2.0, bf_orders + 700),
-        arrowprops=dict(facecolor="#2c3e50", shrink=0.08, width=1.5, headwidth=7),
+        arrowprops={"facecolor": "#2c3e50", "shrink": 0.08, "width": 1.5, "headwidth": 7},
         fontsize=10,
         fontweight="bold",
-        bbox=dict(boxstyle="round,pad=0.4", facecolor="#f1c40f", alpha=0.8, edgecolor="#d4ac0d")
+        bbox={"boxstyle": "round,pad=0.4", "facecolor": "#f1c40f", "alpha": 0.8, "edgecolor": "#d4ac0d"}
     )
 
     plt.title("Olist Monthly Order Growth & Gross Merchandise Value (2017 - 2018)", pad=28)

@@ -8,28 +8,22 @@ and are NEVER fed as predictive features into supervised churn classifiers.
 
 import sys
 from pathlib import Path
-from typing import Tuple
 
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-from sklearn.preprocessing import StandardScaler
-import pandas as pd
-import numpy as np
-
 # Headless rendering backend
 import matplotlib
+import numpy as np
+import pandas as pd
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from src.config import (
-    DATA_PROCESSED,
-    FIGURES_DIR,
-    RANDOM_SEED
-)
+from src.config import DATA_PROCESSED, FIGURES_DIR, RANDOM_SEED
 
 sns.set_theme(style="whitegrid", palette="muted")
 plt.rcParams.update({
@@ -75,7 +69,7 @@ def audit_rfm_distributions(rfm: pd.DataFrame) -> pd.DataFrame:
     return stats_df
 
 
-def preprocess_rfm_for_clustering(rfm: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray, StandardScaler]:
+def preprocess_rfm_for_clustering(rfm: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, StandardScaler]:
     """
     Transforms RFM features for K-Means:
     1. Log-transformation (np.log1p) to normalize heavy monetary/recency tails.
@@ -233,7 +227,7 @@ def main():
     df_customers = pd.read_parquet(customers_path)
     rfm = extract_rfm_table(df_customers)
     audit_rfm_distributions(rfm)
-    df_transformed, scaled_matrix, scaler = preprocess_rfm_for_clustering(rfm)
+    _df_transformed, scaled_matrix, _scaler = preprocess_rfm_for_clustering(rfm)
     assign_and_profile_personas(rfm, scaled_matrix, df_customers, k=4)
 
 

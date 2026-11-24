@@ -1,43 +1,37 @@
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Any
 
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
-import numpy as np
-
 # Headless rendering backend
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-from sklearn.pipeline import Pipeline
-from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.calibration import calibration_curve
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    brier_score_loss,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    average_precision_score,
-    brier_score_loss
 )
+from sklearn.pipeline import Pipeline
 
-from src.config import (
-    DATA_PROCESSED,
-    FIGURES_DIR,
-    RANDOM_SEED
-)
+from src.config import DATA_PROCESSED, FIGURES_DIR, RANDOM_SEED
 from src.model_pipeline import (
-    prepare_features_and_target,
     build_preprocessor_pipeline,
-    split_data_chronological
+    prepare_features_and_target,
+    split_data_chronological,
 )
 
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -50,7 +44,7 @@ def evaluate_baseline_model(
     y_train: pd.Series,
     X_test: pd.DataFrame,
     y_test: pd.Series
-) -> Tuple[Dict[str, Any], np.ndarray]:
+) -> tuple[dict[str, Any], np.ndarray]:
     """
     Fits a Scikit-Learn pipeline on chronological training data and evaluates
     performance on the unseen test set across classification, ranking (ROC/PR),
@@ -186,7 +180,7 @@ def main():
     print(f"Loading {customers_path}...")
     df_customers = pd.read_parquet(customers_path)
     X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+    X_train, _X_val, X_test, y_train, _y_val, y_test = split_data_chronological(X, y, timestamps)
 
     run_baseline_benchmarks(X_train, X_test, y_train, y_test, num_cols, cat_cols)
 

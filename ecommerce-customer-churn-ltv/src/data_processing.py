@@ -5,22 +5,17 @@ Target (is_churned) is computed over the forward outcome window.
 """
 import sys
 from pathlib import Path
+
 # Guarantee that the project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from typing import Dict, Tuple
+
 import pandas as pd
-import numpy as np
 
-from src.config import (
-    DATA_RAW,
-    DATA_PROCESSED,
-    T0_TIMESTAMP,
-    OUTCOME_WINDOW_DAYS
-)
+from src.config import DATA_PROCESSED, DATA_RAW, OUTCOME_WINDOW_DAYS, T0_TIMESTAMP
 
 
-def load_raw_tables(data_dir: Path = DATA_RAW) -> Dict[str, pd.DataFrame]:
+def load_raw_tables(data_dir: Path = DATA_RAW) -> dict[str, pd.DataFrame]:
     """Loads the core Olist CSV tables into a dictionary of DataFrames."""
     path = Path(data_dir)
     tables = {
@@ -36,7 +31,7 @@ def load_raw_tables(data_dir: Path = DATA_RAW) -> Dict[str, pd.DataFrame]:
     return tables
 
 
-def build_unified_orders_dataframe(tables: Dict[str, pd.DataFrame]) -> pd.DataFrame:
+def build_unified_orders_dataframe(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
     Merges relational tables into a single order-level DataFrame.
     Pre-aggregates payments, items, and reviews to guarantee zero row duplication.
@@ -131,7 +126,7 @@ def aggregate_to_customer_level_with_t0(
     df_orders: pd.DataFrame,
     t0_str: str = T0_TIMESTAMP,
     outcome_days: int = OUTCOME_WINDOW_DAYS
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Strict Temporal Separation (Option B):
     - Observation Window (orders <= T0): used to build all customer features and recency.

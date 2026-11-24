@@ -1,29 +1,24 @@
 import sys
 from pathlib import Path
+
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
 import pandas as pd
-import numpy as np
-from xgboost import XGBClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import (
-    roc_auc_score,
     average_precision_score,
-    classification_report
+    roc_auc_score,
 )
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.pipeline import Pipeline
+from xgboost import XGBClassifier
 
-from src.config import (
-    DATA_PROCESSED,
-    MODELS_DIR,
-    RANDOM_SEED
-)
+from src.config import DATA_PROCESSED, MODELS_DIR, RANDOM_SEED
 from src.model_pipeline import (
-    prepare_features_and_target,
     build_preprocessor_pipeline,
-    split_data_chronological
+    prepare_features_and_target,
+    split_data_chronological,
 )
 
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -95,7 +90,7 @@ def train_and_tune_xgboost(
 
     # 4. Evaluation on Validation Set
     y_val_prob = best_pipeline.predict_proba(X_val)[:, 1]
-    y_val_pred = best_pipeline.predict(X_val)
+    best_pipeline.predict(X_val)
 
     val_auc = roc_auc_score(y_val, y_val_prob)
     val_pr_auc = average_precision_score(y_val, y_val_prob)
@@ -123,7 +118,7 @@ def main():
     print(f"Loading {customers_path}...")
     df_customers = pd.read_parquet(customers_path)
     X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+    X_train, X_val, _X_test, y_train, y_val, _y_test = split_data_chronological(X, y, timestamps)
 
     train_and_tune_xgboost(X_train, y_train, X_val, y_val, num_cols, cat_cols)
 

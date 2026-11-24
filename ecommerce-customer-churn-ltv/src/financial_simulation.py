@@ -1,36 +1,33 @@
+import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
-import json
+from typing import Any
 
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
-import pandas as pd
-import numpy as np
 
 # Headless rendering backend
 import matplotlib
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src.config import (
+    BASE_WIN_BACK_RATE,
+    COUPON_COST,
     DATA_PROCESSED,
-    MODELS_DIR,
     FIGURES_DIR,
     METRICS_JSON_PATH,
-    COUPON_COST,
-    BASE_WIN_BACK_RATE,
+    MODELS_DIR,
+    SENSITIVITY_COUPON_COSTS,
     SENSITIVITY_WIN_BACK_RATES,
-    SENSITIVITY_COUPON_COSTS
-)
-from src.model_pipeline import (
-    prepare_features_and_target,
-    split_data_chronological
 )
 from src.model_evaluation import find_optimal_business_threshold
+from src.model_pipeline import prepare_features_and_target, split_data_chronological
 
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_PATH = MODELS_DIR / "best_xgboost_churn_pipeline.joblib"
@@ -44,7 +41,7 @@ def run_honest_financial_simulation(
     y_test: pd.Series,
     df_customers: pd.DataFrame,
     test_indices: pd.Index
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Executes an honest commercial retention simulation:
     1. Tunes threshold on Validation Set.
@@ -133,7 +130,7 @@ def run_honest_financial_simulation(
         }
     ])
 
-    print("\n📊 MACRO STRATEGY SCORECARD (Unseen Test Set: N = {:,}):".format(n_test))
+    print(f"\n📊 MACRO STRATEGY SCORECARD (Unseen Test Set: N = {n_test:,}):")
     print(macro_df.to_string(index=False))
 
     # ==========================================
@@ -225,7 +222,7 @@ def main():
     customers_path = DATA_PROCESSED / "customer_features.parquet"
     df_customers = pd.read_parquet(customers_path)
 
-    X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
+    X, y, timestamps, _num_cols, _cat_cols = prepare_features_and_target(df_customers)
 
     # Sort indices chronologically to get test slice indices
     sorted_indices = timestamps.sort_values().index
@@ -233,7 +230,7 @@ def main():
     val_end = int(n_total * 0.85)  # 70% train + 15% val = 85%
     test_indices = sorted_indices[val_end:]
 
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+    _X_train, X_val, X_test, _y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
 
     pipeline = joblib.load(MODEL_PATH)
     run_honest_financial_simulation(

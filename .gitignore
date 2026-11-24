@@ -180,3 +180,14 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 ecommerce-customer-churn-ltv/repomix-output.xml
+
+# ==========================================
+# Olist Project Large Data & Models (Nested)
+# ==========================================
+**/data/raw/*.csv
+**/data/processed/*.parquet
+**/data/powerbi/*.csv
+**/models/*.joblib
+**/models/*.pkl
+**/*.parquet
+**/*.joblib

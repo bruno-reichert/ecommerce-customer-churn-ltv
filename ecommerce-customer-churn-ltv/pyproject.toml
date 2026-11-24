@@ -1,9 +1,9 @@
 [project]
 name = "ecommerce-customer-churn-ltv"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Production-grade e-commerce customer churn modeling, RFM segmentation, Tree-SHAP interpretability, and retention ROI simulation on Brazilian marketplace data (Olist)."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "ipykernel>=7.4.0",
     "jupyterlab>=4.6.4",

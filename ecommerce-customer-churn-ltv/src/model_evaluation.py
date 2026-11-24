@@ -1,48 +1,44 @@
 import sys
 from pathlib import Path
-from typing import Tuple, Dict, Any
+from typing import Any
 
 # Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import joblib
-import pandas as pd
-import numpy as np
 
 # Headless rendering backend
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-from sklearn.metrics import (
-    confusion_matrix,
-    roc_curve,
-    roc_auc_score,
-    precision_recall_curve,
-    average_precision_score,
-    classification_report,
-    brier_score_loss
-)
 from sklearn.calibration import calibration_curve
+from sklearn.metrics import (
+    average_precision_score,
+    brier_score_loss,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_auc_score,
+    roc_curve,
+)
 
 from src.config import (
-    DATA_PROCESSED,
-    MODELS_DIR,
-    FIGURES_DIR,
+    BASE_WIN_BACK_RATE,
     COUPON_COST,
-    BASE_WIN_BACK_RATE
+    DATA_PROCESSED,
+    FIGURES_DIR,
+    MODELS_DIR,
 )
-from src.model_pipeline import (
-    prepare_features_and_target,
-    split_data_chronological
-)
+from src.model_pipeline import prepare_features_and_target, split_data_chronological
 
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_PATH = MODELS_DIR / "best_xgboost_churn_pipeline.joblib"
 
 
-def find_optimal_business_threshold(y_val: pd.Series, y_val_prob: np.ndarray, avg_churner_ltv: float) -> Tuple[float, float]:
+def find_optimal_business_threshold(y_val: pd.Series, y_val_prob: np.ndarray, avg_churner_ltv: float) -> tuple[float, float]:
     """
     Simulates commercial net profit across thresholds strictly on the VALIDATION SET.
     Returns (optimal_threshold, max_validation_net_profit).
@@ -75,7 +71,7 @@ def evaluate_on_unseen_test(
     X_test: pd.DataFrame,
     y_test: pd.Series,
     avg_churner_ltv: float
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Evaluates final XGBoost on held-out test set:
     1. Locks threshold from validation set.
@@ -90,7 +86,7 @@ def evaluate_on_unseen_test(
     y_test_prob = pipeline.predict_proba(X_test)[:, 1]
 
     # 1. Tune Threshold on Validation Set ONLY
-    optimal_thresh, val_profit = find_optimal_business_threshold(y_val, y_val_prob, avg_churner_ltv)
+    optimal_thresh, _val_profit = find_optimal_business_threshold(y_val, y_val_prob, avg_churner_ltv)
     print(f"📌 Optimal Business Threshold (Tuned on Validation Set): {optimal_thresh:.2f}")
 
     # 2. Apply Locked-In Threshold to Unseen Test Set
@@ -220,8 +216,8 @@ def main():
     df_customers = pd.read_parquet(customers_path)
     avg_churner_ltv = float(df_customers[df_customers["is_churned"] == 1]["total_spend"].mean())
 
-    X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
+    X, y, timestamps, _num_cols, _cat_cols = prepare_features_and_target(df_customers)
+    _X_train, X_val, X_test, _y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
 
     pipeline = joblib.load(MODEL_PATH)
     evaluate_on_unseen_test(pipeline, X_val, y_val, X_test, y_test, avg_churner_ltv)

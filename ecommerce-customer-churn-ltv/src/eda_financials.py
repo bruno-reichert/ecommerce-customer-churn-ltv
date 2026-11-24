@@ -1,12 +1,13 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
-import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Headless rendering backend
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -89,7 +90,7 @@ def plot_unit_economics_and_payments(df_orders: pd.DataFrame) -> None:
         f"1x (Upfront):\n{installment_counts[1]:.1f}%",
         xy=(0, installment_counts[1]),
         xytext=(0.8, installment_counts[1] - 5),
-        arrowprops=dict(facecolor="#2980b9", shrink=0.1, width=1, headwidth=5),
+        arrowprops={"facecolor": "#2980b9", "shrink": 0.1, "width": 1, "headwidth": 5},
         fontweight="bold", fontsize=9
     )
     if 10 in installment_counts:
@@ -97,7 +98,7 @@ def plot_unit_economics_and_payments(df_orders: pd.DataFrame) -> None:
             f"10x Peak:\n{installment_counts[10]:.1f}%",
             xy=(9, installment_counts[10]),
             xytext=(7.5, installment_counts[10] + 8),
-            arrowprops=dict(facecolor="#e74c3c", shrink=0.1, width=1, headwidth=5),
+            arrowprops={"facecolor": "#e74c3c", "shrink": 0.1, "width": 1, "headwidth": 5},
             fontweight="bold", fontsize=9
         )
 

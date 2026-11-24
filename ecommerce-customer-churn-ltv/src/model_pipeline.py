@@ -1,24 +1,19 @@
 import sys
 from pathlib import Path
-from typing import Tuple, List
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from src.config import (
-    DATA_PROCESSED,
-    TRAIN_RATIO,
-    VAL_RATIO,
-    TEST_RATIO
-)
+from src.config import DATA_PROCESSED, TEST_RATIO, TRAIN_RATIO, VAL_RATIO
+
 
 class TopCategoriesGrouper(BaseEstimator, TransformerMixin):
     """
@@ -47,7 +42,7 @@ class TopCategoriesGrouper(BaseEstimator, TransformerMixin):
         return np.asarray(input_features, dtype=object)
 
 
-def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series, List[str], List[str]]:
+def prepare_features_and_target(df_customers: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series, list[str], list[str]]:
     """
     Separates the target from predictive features, explicitly dropping
     recency and timestamps from X to prevent target data leakage.
@@ -95,7 +90,7 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFram
     return X, y, timestamps, numerical_features, categorical_features
 
 
-def build_preprocessor_pipeline(numerical_features: List[str], categorical_features: List[str]) -> ColumnTransformer:
+def build_preprocessor_pipeline(numerical_features: list[str], categorical_features: list[str]) -> ColumnTransformer:
     """
     Creates a hermetic Scikit-Learn ColumnTransformer:
     - Numerical: Median Imputation -> StandardScaler (fitted on X_train only)
@@ -137,7 +132,7 @@ def split_data_chronological(
     train_ratio: float = TRAIN_RATIO,
     val_ratio: float = VAL_RATIO,
     test_ratio: float = TEST_RATIO
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
     """
     Performs a strict Time-Based Chronological Split based on customer arrival
     (first_purchase_timestamp).

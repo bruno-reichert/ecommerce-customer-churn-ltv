@@ -1,10 +1,13 @@
 # src/audit_t0_balance.py
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
-from src.config import T0_TIMESTAMP, OUTCOME_WINDOW_DAYS, DATA_RAW
+
+from src.config import DATA_RAW, OUTCOME_WINDOW_DAYS, T0_TIMESTAMP
+
 
 def audit_t0_balance():
     orders = pd.read_csv(DATA_RAW / "olist_orders_dataset.csv")
