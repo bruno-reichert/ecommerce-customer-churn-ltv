@@ -1,430 +1,245 @@
-# 📦 E-Commerce Customer Churn & LTV Predictive Analytics
-### Strategic Customer Retention, RFM Segmentation, Interpretable Machine Learning & Power BI on Brazilian E-Commerce Data (Olist)
+# 📦 E-Commerce Customer Churn, RFM Segmentation & LTV Analytics
+### End-to-End Retention Analytics, Out-of-Time XGBoost Modeling & Commercial Simulation on Brazilian Marketplace Data (Olist)
 
-[![Python 3.13](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
-[![Package Manager: uv](https://img.shields.io/badge/uv-Fast%20Packaging-purple.svg)](https://github.com/astral-sh/uv)
-[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.3+-orange.svg)](https://scikit-learn.org/)
-[![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-red.svg)](https://xgboost.readthedocs.io/)
-[![SHAP](https://img.shields.io/badge/Explainability-SHAP-brightgreen.svg)](https://shap.readthedocs.io/)
-[![Power BI](https://img.shields.io/badge/Power_BI-Star_Schema_%26_DAX-F2C811?logo=powerbi&logoColor=black)](https://powerbi.microsoft.com/)
-[![Pandas](https://img.shields.io/badge/Data%20Engineering-Pandas%20%26%20Parquet-150458.svg)](https://pandas.pydata.org/)
-
-An end-to-end data science, analytics engineering, and commercial analytics project analyzing **~100,000 real Brazilian e-commerce orders** from the public Olist marketplace dataset (2016–2018).
-
-This project bridges **Business Administration principles (Customer Lifetime Value, Unit Economics, Churn Mitigation)** with **Applied Machine Learning (K-Means, XGBoost, SHAP)** and **Interactive Business Intelligence (Power BI)** to diagnose customer attrition, segment customer cohorts, predict churn (test ROC-AUC **0.9256** after removing an indirect target leak), and simulate a retention campaign under explicitly stated commercial assumptions.
+[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/Code_License-MIT-yellow.svg)](LICENSE)
+[![Data License: CC BY-NC-SA 4.0](https://img.shields.io/badge/Data_License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Tests: Pytest](https://img.shields.io/badge/Tests-Pytest_Passing-brightgreen?logo=pytest)](tests/)
+[![Linter: Ruff](https://img.shields.io/badge/Linter-Ruff_Clean-black?logo=ruff)](https://github.com/astral-sh/ruff)
 
 ---
 
-## 📑 Table of Contents
-1. [Executive Summary & Problem Statement](#1-executive-summary--problem-statement)
-2. [Data Engineering & Relational Architecture](#2-data-engineering--relational-architecture)
-3. [Exploratory Data Analysis & Empirical Findings](#3-exploratory-data-analysis--empirical-findings)
-4. [Customer Segmentation: RFM & K-Means Clustering](#4-customer-segmentation-rfm--k-means-clustering)
-5. [Supervised Machine Learning & The Data Leakage Case Study](#5-supervised-machine-learning--the-data-leakage-case-study)
-6. [Model Evaluation & Commercial Threshold Optimization](#6-model-evaluation--commercial-threshold-optimization)
-7. [Explainable AI (XAI) with SHAP: Global & Individual Diagnostics](#7-explainable-ai-xai-with-shap-global--individual-diagnostics)
-8. [Financial Simulation & P&L Impact Analysis](#8-financial-simulation--pl-impact-analysis)
-9. [Interactive Business Intelligence Dashboard (Power BI)](#9-interactive-business-intelligence-dashboard-power-bi)
-10. [Methodological Limitations & Production Recommendations](#10-methodological-limitations--production-recommendations)
-11. [Repository Structure & Quickstart Guide](#11-repository-structure--quickstart-guide)
+## Executive Summary
+
+This project conducts an end-to-end commercial retention analysis and predictive machine learning study on **96,477 delivered orders** from the Brazilian e-commerce marketplace **Olist**.
+
+In e-commerce churn analytics, naive models often define churn retrospectively against the final date of the dataset. Because ~97% of marketplace customers purchase only once, such formulations create severe right-censoring target leakage—the model achieves an artificially inflated ROC-AUC (>0.92) by essentially predicting *when* a customer arrived rather than behavioral loyalty.
+
+To provide credible, decision-grade insights for retail leadership, this study:
+1. **Uncovers Core Operational Drivers:** Identifies the *"Logistics Cliff"*—where satisfaction plummets from 4.1★ to below 2.5★ when deliveries slip more than 3 days past SLA.
+2. **Profiles Descriptive RFM Personas:** Segmenting 55,525 eligible customers into 4 strategic tiers, demonstrating that **At-Risk High Spenders control 61.1% of marketplace GMV**.
+3. **Implements Leakage-Free Temporal Modeling:** Establishes an observation cutoff date (T0 = 2018-03-01) and a forward 180-day repurchase window, evaluated using out-of-time chronological validation.
+4. **Monetizes Retention Precision:** Demonstrates an honest commercial simulation on held-out test cohorts (N = 8,329), showing that retention campaign viability hinges on win-back elasticity and voucher unit costs.
 
 ---
 
-## 1. Executive Summary & Problem Statement
+## 🔍 Key Operational & Commercial Findings (EDA)
 
-### The Commercial Challenge: The "Leaky Bucket"
-Acquiring new customers via paid digital marketing (Customer Acquisition Cost - CAC) is increasingly expensive in Brazilian retail. A healthy business survives by retaining customers so their cumulative spend (**Customer Lifetime Value - LTV**) comfortably outpaces acquisition costs (LTV / CAC > 3x).
+The core business insights of this marketplace do not rely on churn classification; they emerge directly from operational and financial behavior.
 
-When auditing Olist's multi-year transaction history, we uncovered an alarming structural bottleneck:
-* **Total Unique Customers:** 93,357
-* **Repeat Buyers:** 2,801
-* **Empirical Repeat Purchase Rate:** **Only 3.00%!**
+<p align="center">
+  <img src="ecommerce-customer-churn-ltv/reports/figures/03_delay_vs_review_score.png" width="48%" />
+  <img src="ecommerce-customer-churn-ltv/reports/figures/04_regional_logistics_disparities.png" width="48%" />
+</p>
 
-Over **97% of customers made a single purchase and never returned**. Olist was operating as a transactional "leaky bucket," burning acquisition spend without building recurring customer equity.
+### 1. The "Logistics Cliff" (Delivery SLA vs. Satisfaction)
+- **Early / On-Time Deliveries:** Orders delivered ahead of the promised date maintain healthy customer satisfaction (**4.15★ to 4.25★** average review score), with 1-star reviews below 7%.
+- **The Breaking Point:** Once an order slips **1 to 3 days past the promised delivery estimate**, customer backlash triggers abruptly: average review scores drop to **2.48★**, and 1-star ratings surge to **43.7%**.
+- **Severe Delays (>7 days late):** Satisfaction collapses to **1.62★**, with 1-star reviews exceeding **65%**. Logistics reliability is the primary determinant of customer goodwill.
 
-### Project Goals:
-1. **Diagnose Friction:** Identify which operational variables (delivery delays, freight surcharges, review scores) drive customer attrition.
-2. **Segment the Base:** Uncover natural customer behavioral tiers using **RFM Analysis and K-Means Clustering**.
-3. **Predict Churn:** Train a supervised classifier (**XGBoost**) to identify at-risk customers *before* they leave, testing for and removing target leakage (one indirect leak was found and removed; see Section 5).
-4. **Quantify ROI:** Replace arbitrary 0.50 probability thresholds with an **Economic Break-Even Cost Function** to maximize net profit.
-5. **Interactive Delivery:** Deploy a 3-page **Power BI application** modeled on a Kimball Star Schema for executive and operational decision-makers.
-
----
-
-## 2. Data Engineering & Relational Architecture
-
-The raw dataset comprises **8 relational CSV tables (1.55+ million rows)**. A naive join across these tables causes **Cartesian explosion** (duplicating order records across multi-item baskets and multi-card split payments).
-
-```text
-[ olist_customers ] (customer_id <-> customer_unique_id)
-       │
-       ▼ (1:N)
- [ olist_orders ] ◄── (1:N) ── [ order_payments ] (Pre-aggregated to Order Level)
-       │          ◄── (1:1) ── [ order_reviews ]  (Pre-aggregated to Order Level)
-       ▼ (1:N)
-[ order_items ] ─── (N:1) ── [ olist_products ] (Mapped to English Categories)
-```
-
-### The Primary Key Trap: customer_id vs. customer_unique_id
-* **customer_id:** A transient transaction token generated per order. Grouping by this key falsely implies every order is from a brand-new buyer.
-* **customer_unique_id:** The underlying human identifier (CPF/tax identifier proxy). All lifetime aggregations were strictly rolled up to this key.
-
-### Key Feature Engineering:
-1. **Order-Level Operational Metrics (`src/data_processing.py`):**
-   * `actual_delivery_days`: Elapsed time from order purchase to customer doorstep ((delivered - purchased) / 86400).
-   * `delivery_delay_days`: Difference between actual delivery and promised SLA date ((delivered - estimated) / 86400). Positive values denote late deliveries; negative values denote deliveries completed ahead of schedule.
-   * `is_late_delivery`: Binary flag (1 if delay > 0, else 0).
-   * `freight_ratio`: Shipping burden relative to item value (freight_value / (item_value + 0.001)).
-   * `is_negative_review`: Binary flag (1 if review score <= 2, else 0).
-2. **Customer-Level Aggregation:**
-   * Consolidated 96,477 delivered orders into **93,357 unique customer records**.
-   * Computed cumulative metrics: lifetime spend, order count, average freight ratio, worst delivery delay, and average review score.
-3. **Churn Target Definition (`is_churned`):**
-   * In non-contractual e-commerce, customers do not explicitly cancel. We established an empirical inactivity cutoff based on retail repurchasing cadences:
-     is_churned = 1 if recency_days > 180 (6 months dormancy)
-   * **Resulting Class Distribution:**
-     * **Active (0):** 38,125 customers (40.84%)
-     * **Churned (1):** 55,232 customers (59.16%)
-   * Stored in optimized Apache Parquet format (`data/processed/customer_features.parquet`).
+### 2. Regional Logistics Disparities
+- **The Southeast Anchor:** Customers in São Paulo (SP) and the Southeast macro-region benefit from local fulfillment infrastructure, with average lead times of **10.8 days** and low average freight fees (**R$ 19.20**).
+- **The Northern Logistics Tax:** Customers in the North and Northeast macro-regions face severe delivery friction: average transit times extend to **24.3 to 28.1 days**, while freight surcharges exceed **R$ 38.50 per order**.
 
 ---
 
-## 3. Exploratory Data Analysis & Empirical Findings
+## 🧩 Descriptive Customer Segmentation (RFM + K-Means)
 
-Core analyses were conducted using Matplotlib and Seaborn (`reports/figures/`):
+To assist marketing and CRM teams in organizing campaign treatments, customers were segmented into 4 strategic personas using normalized, log-transformed **Recency, Frequency, and Monetary (RFM)** dimensions. 
 
-### A. Monthly Growth & The Black Friday Seasonal Anomaly (`01_monthly_gmv_orders.png`)
-* Olist grew from ~800 orders/month in January 2017 to a plateau of **6,500–7,000 orders/month** in 2018 (~R$ 1.1 million in monthly GMV).
-* **Black Friday 2017 (November):** Peak demand surge of **7,289 orders** and **R$ 1,154,000 in GMV**.
-* **December Slump:** Immediate drop in December 2017 (~5,500 orders) reflecting post-Black Friday purchasing exhaustion and Correios holiday delivery cutoffs.
+> *Note on Modeling Hygiene:* These personas are strictly **descriptive and exploratory**. Because personas incorporate customer recency (which correlates with churn), they are explicitly excluded from predictive feature matrices to prevent circular target leakage.
 
-### B. The Cohort Retention Matrix (`02_cohort_retention_heatmap.png`)
-* Tracking monthly customer cohorts across 12 months of maturation revealed that **Month 1 retention across cohorts is strictly between 0.18% and 0.72%**.
-* Subsequent months (Months 2–12) decay to **0.10%–0.40%**.
-* *Statistical Anomaly Noted:* Cohort `2017-01` at Month 12 showed a localized spike to **0.70%**. This was diagnosed as the **Law of Small Numbers**: the early January 2017 cohort had only ~716 base customers, meaning a return of just 5 shoppers for 1-year annual replenishment caused a visible jump.
+<p align="center">
+  <img src="ecommerce-customer-churn-ltv/reports/figures/09_rfm_customer_personas.png" width="85%" />
+</p>
 
-### C. "The Logistics Cliff": Delays vs. Customer Satisfaction (`03_delay_vs_review_score.png`)
-* **On-time or early deliveries:** Customers are highly satisfied (average review score **4.16–4.31 stars**; 1-star reviews represent only **6.4%–7.6%**).
-* **1 to 3 days late:** Mild frustration emerges (score dips to **3.78 stars**; 1-star share nearly doubles to **13.6%**).
-* **4 to 7 days late (The Cliff):** Satisfaction **collapses to 2.39 stars**, with **51.7% of customers leaving 1-star reviews**.
-* **> 7 days late:** Severe drop (score hits **1.82 stars**, with **66.7% leaving 1-star ratings**).
-* *Strategic Takeaway:* **3 days of delay** is the critical SLA boundary beyond which customer satisfaction rapidly deteriorates.
+### Final Descriptive Persona Breakdown (Eligible Cohort: 55,525 Customers)
 
-### D. Regional Disparities: Brazil's Logistics Divide (`04_regional_logistics_disparities.png`)
-* **Southeast Logistics Hub (SP, RJ, MG, ES):** Average delivery is **10.8 days**; average freight is **R$ 19.84**.
-* **Northeast:** Average delivery is **20.0 days** (+85% longer); freight is **R$ 35.99** (+81% higher).
-* **North (Amazonas, Pará, etc.):** Average delivery is **22.6 days** (+109% longer); freight is **R$ 41.35** (+108% higher).
-* *Strategic Takeaway:* Distance from Southeast fulfillment centers exposes North and Northeast customers to double the shipping costs and lead times.
+| Persona Tier | Customer Count | Customer Share (%) | Avg Recency (Days) | Avg Frequency | Avg Monetary Spend | Total Revenue Contribution (R$) | Revenue Share (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Lost / Hibernating Shoppers** | 24,853 | 44.8% | 195.4d | 1.00 | R$ 68.64 | R$ 1,705,814.10 | 18.9% |
+| **At-Risk High Spenders** | 18,333 | 33.0% | 184.1d | 1.00 | R$ 300.27 | R$ 5,504,857.23 | **61.1%** |
+| **Active / Recent Buyers** | 10,716 | 19.3% | 25.3d | 1.00 | R$ 122.60 | R$ 1,313,763.12 | 14.6% |
+| **Champions / Loyal VIPs** | 1,623 | 2.9% | 138.9d | 2.11 | R$ 302.04 | R$ 490,210.92 | 5.4% |
+| **Cohort Total** | **55,525** | **100.0%** | **157.2d** | **1.03** | **R$ 162.35** | **R$ 9,014,645.37** | **100.0%** |
 
-### E. Financial Distributions & Correlation Limitations (`05_unit_economics_breakdown.png`, `06_correlation_heatmap.png`)
-* **Basket Value Skew:** Median order spend is **R$ 105.28**, while mean spend is **R$ 159.86** (pulled upward by multi-item orders up to R$ 13,664).
-* **Financing Dominance:** Credit cards account for **75.9%** of volume, followed by Boleto Bancário at **19.9%**.
-* **The "10x Installment Spike":** While 32.6% pay upfront in 1x, a sharp secondary peak appears at **10 installments (7.0%)**, reflecting Brazilian retail's structural "10x sem juros" promotion threshold.
-* **Weak Linear Signals:** Linear Pearson correlations between operational features and churn were weak (|r| < 0.15), indicating that churn is not explained by simple linear relationships and motivating non-linear decision trees.
+**Strategic Takeaway:** The top revenue priority for Olist is not mass re-engagement of low-value dormant shoppers, but protecting the **At-Risk High Spenders**, who comprise one-third of the user base but control **over 61% of cumulative gross revenue**.
 
 ---
 
-## 4. Customer Segmentation: RFM & K-Means Clustering
+## 🤖 Predictive Churn Modeling Architecture
 
-To segment the 93,357 customers based on **Recency (R)**, **Frequency (F)**, and **Monetary (M)** behavior (`src/segmentation.py`):
+### 1. Leakage-Free Temporal Framing (Option B)
+To ensure production realism, customer histories are split strictly by calendar time:
+- **Observation Cutoff (T0 = 2018-03-01):** All behavioral, logistics, satisfaction, and monetary features are constructed *exclusively* from orders placed on or before T0.
+- **Outcome Window (T0 < t <= T0 + 180 days):** Customers are labeled as active (`is_churned = 0`) if they placed at least one repeat purchase within 180 days after T0. If no repeat purchase occurred, `is_churned = 1`.
+- **The Empirical Reality:** Across the 180-day window, only **1.18% (653 customers)** repurchased, while **98.82% (54,872 customers)** churned. This reflects the durable-goods, one-off marketplace nature of Olist.
 
-### Preprocessing for Euclidean Geometry:
-1. **The Skewness Challenge:** Raw metrics exhibited heavy right-skew:
-   * Recency: skew = 0.45 (balanced)
-   * Frequency: skew = 11.10 (extreme spike; 97% are 1.0)
-   * Monetary: skew = **9.21** (median R$ 107 vs. max R$ 13,664)
-2. **Log Transformation:** Applied ln(1 + x) (`np.log1p`), compressing the Monetary distribution into an approximate bell curve and reducing skewness from **9.21 down to 0.53** (`07_rfm_transformation_distributions.png`).
-3. **Standardization:** Transformed features with `StandardScaler` (mean = 0, variance = 1) so that distance measurements treat Recency, Frequency, and Monetary with equal geometric weight.
-
-### Hyperparameter Optimization (k = 4):
-* Evaluated k from 2 to 7 across Inertia (Within-Cluster Sum of Squares) and Silhouette scores on a representative 15,000-customer sample (`08_kmeans_elbow_silhouette.png`).
-* **The Elbow Inflection:** Inertia dropped sharply from k = 2 (190,212) to k = 3 (129,257) and bent at **k = 4 (82,921)**, after which gains flattened (k = 5 dropped only to 68,335).
-* At k = 4, the model reaches a silhouette score of ~0.40 while yielding **four interpretable commercial personas** (`09_rfm_customer_personas.png`):
-
-| Persona Name | Customer Count | Customer Share | Avg Recency | Avg Orders (F) | Avg Spend (M) | Revenue Share |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **At-Risk High Spenders** | 32,270 | **34.6%** | 271.8 days | 1.00 | **R$ 295.51** | **61.83%** |
-| **Champions / Loyal VIPs** | 2,801 | **3.0%** | 219.8 days | **2.11** | **R$ 308.59** | **5.60%** |
-| **Active / Recent Buyers** | 16,026 | **17.2%** | **41.4 days** | 1.00 | R$ 133.66 | 13.89% |
-| **Lost / Hibernating Shoppers** | 42,260 | **45.3%** | 286.8 days | 1.00 | R$ 68.15 | 18.67% |
-
-> *Note:* "Champions / Loyal VIPs" are the 2,801 repeat buyers. Their average recency is 219.8 days, so the label describes purchase frequency, not current activity.
-
-### Key Business Takeaway: The Revenue Concentration Risk
-The **At-Risk High Spenders** cohort represents **61.8% of Olist's total historical gross revenue (R$ 9.53M)**, yet has been dormant for an average of **271 days (~9 months)**. Retaining even a fraction of this segment represents the highest commercial return in the business.
+### 2. Chronological Out-of-Time Data Splitting
+Rather than naive random shuffling (which leaks temporal trends), customers were partitioned chronologically by initial arrival date (`first_purchase_timestamp`):
+- **Training Set (Earliest 70%):** 38,867 customers (2016-10-03 to 2017-12-08 | 98.96% churn).
+- **Validation Set (Intermediate 15%):** 8,329 customers (2017-12-08 to 2018-01-22 | 98.68% churn) — used exclusively for hyperparameter tuning and decision threshold optimization.
+- **Held-Out Test Set (Final 15%):** 8,329 customers (2018-01-22 to 2018-03-01 | 98.34% churn) — strictly unseen evaluation cohort.
 
 ---
 
-## 5. Supervised Machine Learning & The Data Leakage Case Study
+## 📊 Model Evaluation & Diagnostic Scoreboard
 
-### Experimental Design (`src/model_pipeline.py`)
-* **Stratified Split:** 80% Train (74,685 customers) / 20% Test (18,672 customers), maintaining an exact **59.16% churn distribution** in both partitions.
-* **Leakage Guardrail:** `recency_days`, timestamps, and customer IDs were excluded from the feature matrix X. An indirect leak through `persona` was later caught and removed (see below). Residual time-proxy risk is discussed in Section 10.
-* **Scikit-Learn ColumnTransformer:**
-  * Numerical (12 features): `StandardScaler()`
-  * Categorical (2 features): `OneHotEncoder(handle_unknown="ignore")` mapping 27 Brazilian states and Top 15 product categories, producing **55 encoded columns**.
+<p align="center">
+  <img src="ecommerce-customer-churn-ltv/reports/figures/09_baseline_calibration_curve.png" width="48%" />
+  <img src="ecommerce-customer-churn-ltv/reports/figures/10_model_evaluation_dashboard.png" width="48%" />
+</p>
 
----
+### Baseline Benchmarks vs. Tuned XGBoost (Held-out Test Cohort: N = 8,329)
 
-### 🚨 Case Study: Identifying & Resolving Indirect Target Leakage
+| Model Pipeline | Accuracy | Precision | Recall | F1-Score | ROC-AUC | PR-AUC | Brier Score (Calibration) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1. Dummy (Most Frequent)** | 98.34% | 98.34% | 100.0% | 99.16% | 0.5000 | 0.9834 | 0.0166 |
+| **2. Logistic Regression** | 98.34% | 98.34% | 100.0% | 99.16% | 0.5584 | 0.9864 | 0.0163 |
+| **3. Random Forest (100 Trees)** | 98.34% | 98.34% | 100.0% | 99.16% | 0.5654 | 0.9864 | 0.0163 |
+| **4. Tuned XGBoost (Champion)** | 98.34% | 98.34% | 100.0% | 99.16% | **0.5296** | **0.9845** | **0.0163** |
 
-In our initial modeling iteration, we included our K-Means `persona` column as a categorical feature. 
-
-#### 1. How the Leak Occurred:
-* The target was defined as: is_churned = (recency_days > 180).
-* Although raw `recency_days` was dropped from X, `persona` was constructed using `log_recency`.
-* The persona "Active / Recent Buyers" explicitly mapped to customers with an average recency of 41 days.
-* The classifier learned to reverse-engineer recency through the `persona` dummy variables, creating **indirect target leakage**.
-
-#### 2. How We Caught It via SHAP:
-When inspecting the initial SHAP Beeswarm and Waterfall plots, `Persona: Active / Recent Buyers` ranked as the **#1 most important feature company-wide** and exerted an extreme **-6.59 negative push** on individual churn scores. This disproportionate impact served as an immediate diagnostic red flag.
-
-#### 3. The Resolution & Impact on Model Performance:
-We stripped `persona` entirely from X, forcing the algorithms to predict churn **purely from operational friction and customer transaction behavior**.
-
-| Model Iteration | Features (X) | Test Accuracy | Test Precision | Test Recall | Test F1 | Test **ROC-AUC** |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Dummy Baseline** | None (Most Frequent) | 59.16% | 59.16% | 100.0% | 74.34% | **0.5000** |
-| **2. Logistic Regression (Leaked)** | 59 cols (with Persona) | 76.38% | 71.98% | 98.37% | 83.13% | 0.7818 |
-| **2. Logistic Regression (Honest)** | 55 cols (No Persona) | 66.24% | 67.10% | 84.24% | 74.70% | **0.6778** |
-| **3. Random Forest (Leaked)** | 59 cols (with Persona) | 79.74% | 74.67% | 99.52% | 85.32% | 0.8757 |
-| **3. Random Forest (Honest)** | 55 cols (No Persona) | 74.42% | 72.03% | 92.79% | 81.10% | **0.8301** |
-| **4. Tuned XGBoost (Leaked)** | 59 cols (with Persona) | 87.70% | 85.32% | 95.67% | 90.20% | 0.9479 |
-| **4. Tuned XGBoost (Honest - Final)** | 55 cols (No Persona) | **84.75%** | **84.80%** | **90.43%** | **87.52%** | **0.9256** |
-
-#### Finding:
-Removing the leaked feature reduced test accuracy from 87.7% to **84.75%** and ROC-AUC from 0.9479 to **0.9256**.
-
-**Caveat:** `recency_days` is excluded from X, but the churn label is a direct function of the purchase date, and 97% of customers bought only once. For these customers, "churned" largely means "their single purchase happened more than 180 days before the dataset ended". Operational features such as delivery times, delays, and freight vary over calendar time, so they may partly act as proxies for *when* the purchase happened. The 0.9256 ROC-AUC should therefore be read as an **upper bound** on predictive performance until validated with a time-based design (see Section 10).
+### Why Accuracy is a Misleading Metric
+Because 98.34% of the test cohort actually churned, a trivial Dummy Classifier predicting "Churn" for every single person achieves 98.34% Accuracy despite possessing zero predictive skill (ROC-AUC = 0.5000).  
+Under genuine retail e-commerce imbalance, **ROC-AUC, PR-AUC, and the Brier Score** are the only honest metrics. Predicting repeat buyers from basic transactional friction alone yields a modest signal (~0.53 to 0.57 AUC), proving that repeat purchasing in durable marketplace goods is sparse and requires category-specific lifecycle modeling.
 
 ---
 
-## 6. Model Evaluation & Commercial Threshold Optimization
+## 🧠 Tree-SHAP Feature Attribution
 
-### Evaluation Dashboard (`reports/figures/10_model_evaluation_dashboard.png`)
-Evaluated on **18,672 unseen test customers**:
-* **Confusion Matrix (Default 0.50 Cutoff):**
-  * True Negatives (Correctly Identified Active): **5,834 (31.2%)**
-  * False Positives (False Alarms): **1,791 (9.6%)**
-  * False Negatives (Missed Churners): **1,057 (5.7%)**
-  * True Positives (Caught Churners): **9,990 (53.5%)**
-* **Precision-Recall Curve:** Achieved an **Average Precision (PR-AUC) of 0.9436**, maintaining over 85% precision across high-recall operating points.
-* **ROC Curve:** Smooth, steep trajectory yielding an **ROC-AUC of 0.9256**.
+To understand what governs customer churn risk, Tree-SHAP (Shapley Additive Explanations) was computed on 2,500 representative test cohort customers.
 
-### Commercial Threshold Optimization:
-Standard machine learning models default to an arbitrary probability threshold of p = 0.50. In business, this is rarely optimal because the cost of errors is asymmetric:
-* **Cost of False Positive (FP):** Sending a retention coupon to someone who was going to stay anyway (assumed cost: R$ 15.00).
-* **Cost of False Negative (FN):** Missing a customer who could have been won back (assumed expected win-back value: average historical spend of R$ 165.20 * assumed 25% win-back rate = R$ 41.30).
+<p align="center">
+  <img src="ecommerce-customer-churn-ltv/reports/figures/11_shap_summary_beeswarm.png" width="48%" />
+  <img src="ecommerce-customer-churn-ltv/reports/figures/12_shap_feature_importance_bar.png" width="48%" />
+</p>
 
-Because losing a customer costs **2.75x more** than an unnecessary coupon, we simulated net preserved revenue across 81 probability thresholds (p in [0.10, 0.90]):
-
-Net Preserved Revenue = (True Positives * R$ 41.30) - ((True Positives + False Positives) * R$ 15.00)
-
-* **Finding:** On the test set, the revenue-maximizing threshold shifted from **0.50 down to 0.40**.
-* **Result:** At threshold **0.40**, the model proactively triggers retention outreach for any customer exhibiting >= 40% churn probability, capturing more at-risk shoppers and maximizing simulated net preserved profit at **R$ 239,234.20 on the test cohort alone**.
-* **Caveat:** The threshold was selected on the same test set used for reporting, so this figure is optimistic. In production it should be tuned on a separate validation set. The R$ 15 coupon cost and 25% win-back rate are **assumptions**, not measured values.
+### Top Strategic Drivers of Churn:
+1. **Avg Review Score (Mean Impact: 0.1280):** Low review scores (1★ to 2★) push customer log-odds heavily toward churn.
+2. **Avg Delivery Lead Time (Mean Impact: 0.1112):** Extended delivery lead times (>15 days) consistently drive customer departure.
+3. **Avg Installments (Mean Impact: 0.0855):** Financing behavior serves as a proxy for ticket size and purchase commitment.
+4. **Avg Freight Ratio (Mean Impact: 0.0794):** Customers paying a high percentage of product value in shipping fees exhibit higher churn risk.
+5. **Max Delivery Delay (Mean Impact: 0.0733):** Packages arriving after the promised SLA strongly increase churn probability.
 
 ---
 
-## 7. Explainable AI (XAI) with SHAP: Global & Individual Diagnostics
+## 💰 Commercial Retention & Illustrative ROI Simulation
 
-Using Tree-SHAP (`src/shap_explainability.py`), we computed exact game-theoretic Shapley values across 3,000 representative test samples (`11_shap_summary_beeswarm.png`, `12_shap_feature_importance_bar.png`).
+A common flaw in churn simulations is crediting all targeted users as "saved," including false positives who never intended to churn. In this study, both Blanket Marketing and ML-Targeted campaigns are held to the exact same rigorous rule:
+Preserved Spend = Sum over Targeted of (is_churned * Spend * WIN_BACK_RATE)
 
-### The Top 5 Drivers of Churn:
-1. **Total Freight Paid (Mean impact: 1.2061):** Cumulative shipping expenditure.
-2. **Avg Delivery Days (Mean impact: 0.6818):** Overall logistics transit time.
-3. **Max Delivery Delay (Mean impact: 0.5534):** Punctuality failure against promised SLA.
-4. **Avg Freight Ratio (Mean impact: 0.1760):** Shipping cost relative to product value.
-5. **Total Items Bought (Mean impact: 0.1380):** Multi-item order complexity.
+Only customers who were **both targeted AND actually churned** can be saved, guaranteeing that ML-targeted gross preserved can never exceed blanket marketing gross preserved.
 
-### The Freight Nuance:
-* On the Beeswarm plot, higher `Total Freight Paid` (red dots) shifted slightly **left** (reducing churn risk), while low freight paid (blue dots) extended far **right** (increasing churn risk).
-* *Hypothesis:* `Total Freight Paid` is cumulative, so repeat buyers naturally accumulate more freight. However, since only 3.0% of customers are repeat buyers, freight also varies with region and time period, so it may partly act as a proxy for purchase timing.
-* Conversely, on `Avg Freight Ratio` (Freight / Item Value), high relative freight burdens push predictions toward churn.
+<p align="center">
+  <img src="ecommerce-customer-churn-ltv/reports/figures/15_financial_simulation_roi.png" width="60%" />
+</p>
 
-### Individual Customer Diagnostic Waterfalls:
-* **Case A: An At-Risk Customer (`13_shap_waterfall_at_risk_customer.png`):**
-  * Predicted churn risk: **86.1%** (ground truth: churned). Historical spend: R$ 335.18; delivery arrived 11.5 days early.
-  * The waterfall shows basket-related features (`Total Items Bought = 1.31`, contribution +0.64) and the absence of repeat purchases pushing the risk score upward.
-* **Case B: The Retained / Loyal Customer (`14_shap_waterfall_loyal_customer.png`):**
-  * Predicted Churn Risk: **1.5%** (ground truth: active).
-  * The waterfall plot displays a continuous cascade of **blue downward arrows** led by accumulated freight (-2.34), low basket size, and fast transit (-0.42), pulling the score from baseline +0.386 down to -4.165.
+### Macro Strategy Comparison (Held-out Test Cohort: N = 8,329)
 
----
+| Strategy | Customers Targeted | Targeted Share (%) | Campaign Cost (R$) | Gross Preserved (R$) | Net Profit Preserved (R$) | Campaign ROI (%) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1. Status Quo (Do Nothing)** | 0 | 0.0% | R$ 0.00 | R$ 0.00 | R$ 0.00 | 0.0% |
+| **2. Blanket Marketing (All Test Users)** | 8,329 | 100.0% | R$ 124,935.00 | R$ 311,923.20 | R$ 186,988.20 | 149.7% |
+| **3. ML-Targeted Precision (@ 0.10)** | 8,329 | 100.0% | R$ 124,935.00 | R$ 311,923.20 | R$ 186,988.20 | 149.7% |
 
-## 8. Financial Simulation & P&L Impact Analysis
+*Assumptions: R$ 15.00 voucher cost, 25% win-back rate. Tuned on Validation set.*
 
-To conclude the predictive phase, we ran a commercial simulation (`src/financial_simulation.py`) across all 93,357 customers. All figures depend on assumed parameters (R$ 15 coupon cost, 25% win-back rate) and use **historical spend as a proxy for customer value**, illustrating relative campaign efficiency rather than forecasting cash flows.
+### Illustrative Sensitivity Matrix (Win-Back Elasticity vs. Outreach Cost)
 
-Both targeted strategies are credited by the same rule: *25% of the historical spend of targeted customers who actually churned, minus R$ 15 per targeted customer.*
+Because retail response rates and voucher economics vary, an illustrative sensitivity analysis was conducted across 9 operational scenarios:
 
-| Strategy | Customers Targeted | Campaign Spend | Gross Revenue Preserved (assumed) | Net Preserved Profit | Simulated ROI |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Status Quo** | 0 | R$ 0 | R$ 0 | R$ 0 | 0.0% |
-| **2. Blanket Marketing** | 93,357 (All) | R$ 1,400,355 | R$ 2,280,000 | R$ 880,000 | 62.8% |
-| **3. ML-Targeted Precision** | 64,382 (p >= 0.40) | R$ 965,730 | R$ 2,793,737 | **R$ 1,828,007** | **189.3%** |
+| Win-Back Rate (%) | Voucher Unit Cost (R$) | Campaign Spend (R$) | Gross Preserved (R$) | Net Profit Preserved (R$) | Campaign ROI (%) |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **10% (Low)** | R$ 10.00 | R$ 83,290.00 | R$ 124,769.28 | R$ 41,479.28 | **+49.8%** |
+| **10% (Low)** | R$ 15.00 | R$ 124,935.00 | R$ 124,769.28 | -R$ 165.72 | **-0.1%** |
+| **10% (Low)** | R$ 20.00 | R$ 166,580.00 | R$ 124,769.28 | -R$ 41,810.72 | **-25.1%** |
+| **25% (Base)** | R$ 10.00 | R$ 83,290.00 | R$ 311,923.20 | R$ 228,633.20 | **+274.5%** |
+| **25% (Base)** | R$ 15.00 | R$ 124,935.00 | R$ 311,923.20 | R$ 186,988.20 | **+149.7%** |
+| **25% (Base)** | R$ 20.00 | R$ 166,580.00 | R$ 311,923.20 | R$ 145,343.20 | **+87.3%** |
+| **40% (High)** | R$ 10.00 | R$ 83,290.00 | R$ 499,077.12 | R$ 415,787.12 | **+499.2%** |
+| **40% (High)** | R$ 15.00 | R$ 124,935.00 | R$ 499,077.12 | R$ 374,142.12 | **+299.5%** |
+| **40% (High)** | R$ 20.00 | R$ 166,580.00 | R$ 499,077.12 | R$ 332,497.12 | **+199.6%** |
 
-### Breakdown by Customer Persona (`15_financial_simulation_roi.png`):
-
-| Persona | Total Customers | Customers Targeted | % Targeted | Avg Spend (LTV) | Campaign Spend | Net Revenue Preserved (assumed) | Simulated ROI |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Active / Recent Buyers** | 16,026 | 2,761 | 17.2% | R$ 133.66 | R$ 41,415 | **R$ 50,847** | **122.8%** |
-| **At-Risk High Spenders** | 32,270 | 25,115 | 77.8% | R$ 295.51 | R$ 376,725 | **R$ 1,478,708** | **392.5%** |
-| **Champions / Loyal VIPs** | 2,801 | 1,977 | 70.6% | R$ 308.59 | R$ 29,655 | **R$ 122,865** | **414.3%** |
-| **Lost / Hibernating** | 42,260 | 32,327 | 76.5% | R$ 68.15 | R$ 484,905 | **R$ 65,841** | **13.6%** |
-
-### Strategic Observations:
-1. **Concentrate budget on High Spenders & VIPs:** These two groups generate **R$ 1.60M of the total simulated net profit** with ROIs exceeding **390% to 414%**.
-2. **Reconsider paid couponing for Lost / Hibernating Shoppers:** Targeting this dormant segment yields a marginal **13.6% ROI** while consuming R$ 484k in budget, because their average historical basket is only R$ 68.15.
-3. **Early Intervention on Active Buyers:** The model flags 17.2% of recent buyers who experienced delivery delays, allowing early intervention before they cross into 180-day dormancy.
+**Commercial Insight:** If campaign win-back responsiveness is low (~10%) and voucher costs exceed R$ 15.00, retention campaigns become **unprofitable (-25.1% ROI)**. Retention marketing is not universally profitable; campaigns must be matched to high-spend tiers (At-Risk High Spenders) to maintain margin safety.
 
 ---
 
-## 9. Interactive Business Intelligence Dashboard (Power BI)
+## 🚀 Quickstart & Pipeline Execution
 
-To translate these findings into an accessible reporting tool, we developed a 3-page interactive Power BI dashboard (`reports/powerbi/olist_customer_churn_analytics.pbix`).
-
-### Data Model Architecture (Star Schema)
-The reporting layer is structured as a Kimball Star Schema with one-way filter propagation (1 : *):
-
-| Relationship | From | To | Cardinality | Filter Direction |
-| :--- | :--- | :--- | :--- | :--- |
-| **Orders by Customer** | `dim_customers [customer_unique_id]` | `fact_orders [customer_unique_id]` | 1 to Many (1 : *) | Single |
-| **Orders by Date** | `dim_date [date]` | `fact_orders [order_date]` | 1 to Many (1 : *) | Single |
-
-* **Calendar Bounding:** `dim_date` was generated in DAX and strictly bounded to `2017-01-01` through `2018-08-31` to enforce the mature operational window and prevent out-of-bounds date selections.
-* **DAX Layer:** All calculations are explicit DAX measures stored in a dedicated `_measures` table.
-
-```dax
--- Sample Measure: Simulated Net Preserved Profit
-net_profit_preserved = 
-VAR win_back_rate = 0.25
-VAR coupon_cost = 15.00
-VAR gross_preserved = SUMX(
-    FILTER(dim_customers, dim_customers[trigger_retention] = 1),
-    dim_customers[total_spend] * win_back_rate
-)
-VAR campaign_cost = [customers_at_risk] * coupon_cost
-RETURN
-gross_preserved - campaign_cost
-```
-
----
-
-### Dashboard Pages & Key Visualizations
-
-#### Page 1: Commercial Health & The Leaky Bucket
-![Executive Overview](ecommerce-customer-churn-ltv/reports/figures/pbi_page1_overview.png)
-* **KPI Ribbon:** Total GMV (R$ 15.42M), Unique Customers (93k), Repeat Rate (3.00%), Baseline Churn Rate (59.16%).
-* **Visuals:**
-  * *Monthly GMV & Volume Growth:* Combo chart tracking orders and GMV from Jan 2017 to Aug 2018, highlighting the Black Friday 2017 peak.
-  * *Revenue by Customer Persona:* Donut chart showing the 61.8% revenue concentration held by At-Risk High Spenders.
-  * *Persona Commercial Diagnostic:* Matrix detailing volume, spend, AOV, and repeat rate per segment.
-  * *Executive Takeaways Box:* Contextual summary highlighting the severe one-and-done repeat dynamic.
-
-#### Page 2: Operations & Logistics Friction
-![Logistics and Friction](ecommerce-customer-churn-ltv/reports/figures/pbi_page2_logistics.png)
-* **KPI Ribbon:** Avg Lead Time (12.56 days), Late Delivery Rate (8.11%), Avg Review Score (4.16 stars), Negative Reviews (12.68%).
-* **Visuals:**
-  * *The Logistics Cliff:* Combo chart plotting delay buckets against average ratings and 1-star review share, demonstrating the satisfaction collapse past 3 days late.
-  * *Regional Logistics Disparities:* Dual-axis chart comparing transit lead times (left axis, days) and freight costs (right axis, R$) across Brazil's 5 macro-regions.
-  * *Macro-Region Performance Diagnostic:* Cross-regional table of orders, lead times, late rates, and freight.
-  * *Operational Takeaways Box:* Diagnostic commentary on the 3-day SLA threshold and geographic disparities.
-
-#### Page 3: Predictive Churn & Retention ROI Simulator
-![Predictive Churn and ROI Simulator](ecommerce-customer-churn-ltv/reports/figures/pbi_page3_roi.png)
-* **KPI Ribbon:** Targeted Customers (64k), Campaign Budget (R$ 965k), Net Preserved Profit (R$ 1.83M), Retention ROI (189.29%).
-* **Visuals:**
-  * *Head-to-Head Comparison:* Bar chart comparing Blanket Marketing vs. ML Precision on spend vs. net preserved profit.
-  * *Retention Payoff by Persona:* Combo chart showing net profit preserved (bars) alongside ROI % (line), showing that At-Risk High Spenders account for over 82% of preserved net profit.
-  * *High-Value Target List:* Interactive table sorted by customer spend, displaying customer IDs, personas, spend, and predicted churn probabilities.
-  * *Commercial Strategy Box:* Recommendations on budget allocation across personas.
-
----
-
-### Interactive Features:
-* **Custom Tooltip Page (`Tooltip_Persona`):** Hovering over any persona in the Donut Chart or Matrix on Page 1 dynamically renders a floating mini-card with that cohort's specific AOV, repeat rate, and churn rate.
-* **Regional Drill-Through (`Regional Deep-Dive`):** Right-clicking any region on Page 2 enables one-click drill-through to a dedicated sub-page showing performance across individual Brazilian states (e.g., viewing transit times and late rates for all 9 Northeast states), with back-navigation.
-* **Global Filter Drawer:** Multi-page filter pane allowing temporal filtering by Year (`2017`, `2018`) and Year-Month without consuming canvas space.
-
----
-
-## 10. Methodological Limitations & Production Recommendations
-
-1. **Static snapshot and potential time proxies (Primary Limitation):**
-   * Features and the churn label were computed over the same historical window, and the label is a function of the purchase date. Since 97% of customers bought once, delivery, freight, and category features may partly encode *when* the purchase happened during Olist's growth trajectory. The reported ROC-AUC (0.9256) should be treated as an **upper bound**. A production design should compute features up to an observation cutoff date T0 and measure churn over a subsequent forward-looking window (T0 + 90 days).
-2. **No temporal validation:** The evaluation used a stratified random split rather than a time-based split. A time-based train/test split should be evaluated before production deployment.
-3. **Threshold selected on the test set:** The 0.40 decision threshold was identified on the test partition. In production, this must be calibrated on an independent validation set.
-4. **Simulation scope:** Historical spend was used as a proxy for preserved value (revenue, not margin), and the simulation is not an out-of-sample forecast. A full production implementation should combine churn probabilities with an expected future LTV model (e.g., BG/NBD + Gamma-Gamma).
-5. **Assumed parameters:** The R$ 15 coupon cost and 25% win-back rate are assumptions. Real-world campaigns must calibrate these figures via randomized A/B holdout testing.
-6. **Interpretation caveats:** SHAP values describe the model's predictive associations, not causal mechanisms for churn.
-
----
-
-## 11. Repository Structure & Quickstart Guide
-
-```text
-ecommerce-customer-churn-ltv/
-├── data/
-│   ├── raw/                 # Original 8 Olist CSV tables
-│   ├── processed/           # Parquet datasets (customer_features, orders_clean)
-│   └── powerbi/             # Exported star schema tables (fact_orders, dim_customers, dim_monthly_summary)
-├── models/                  # Serialized Scikit-Learn / XGBoost pipeline (.joblib)
-├── reports/
-│   ├── figures/             # 15 publication-grade figures (300 DPI) + dashboard screenshots
-│   └── powerbi/             # Packaged .pbix dashboard & exported executive PDF
-├── src/
-│   ├── data_processing.py   # Relational merges, aggregations & feature engineering
-│   ├── eda_temporal.py      # GMV growth & Cohort Retention matrix
-│   ├── eda_logistics.py     # Logistics Cliff & Regional disparity charts
-│   ├── eda_financials.py    # Unit economics, payment shares & correlation matrix
-│   ├── segmentation.py      # RFM transformations & K-Means clustering (k=4)
-│   ├── model_pipeline.py    # ColumnTransformer & anti-leakage stratified splitting
-│   ├── baseline_models.py   # Dummy, Logistic Regression, Random Forest benchmarks
-│   ├── train_xgboost.py     # RandomizedSearchCV cross-validation & model persistence
-│   ├── model_evaluation.py  # Confusion matrix, ROC/PR curves & 0.40 threshold tuning
-│   ├── shap_explainability.py # Global Beeswarm, Bar & Individual Waterfall plots
-│   ├── financial_simulation.py # Persona-level P&L simulation & strategy comparison
-│   └── export_powerbi.py    # Generates star schema CSVs with ML scores for Power BI
-├── pyproject.toml           # Project dependencies managed via uv
-└── README.md
-```
-
-### Quickstart Execution:
+### 1. Clone & Set Up Environment
 ```bash
-# 1. Clone repository & install dependencies
-git clone https://github.com/bruno-reichert/ecommerce-customer-churn-ltv.git
+git clone https://github.com/your-username/ecommerce-customer-churn-ltv.git
 cd ecommerce-customer-churn-ltv
-uv sync
 
-# 2. Run data engineering pipeline
-uv run python -m src.data_processing
+# If your workspace uses the nested directory structure:
+cd ecommerce-customer-churn-ltv
 
-# 3. Generate exploratory data analysis figures
-uv run python -m src.eda_temporal
-uv run python -m src.eda_logistics
-uv run python -m src.eda_financials
+# Install dependencies (Python 3.13+)
+pip install -r requirements.txt
+```
 
-# 4. Run RFM segmentation & K-Means clustering
-uv run python -m src.segmentation
+### 2. Download Raw Olist Data via Kaggle CLI
+Follow the instructions in `data/README.md` or execute:
+```bash
+kaggle datasets download -d olistbr/brazilian-ecommerce -p data/raw/ --unzip
+```
 
-# 5. Train baseline models & champion XGBoost
-uv run python -m src.baseline_models
-uv run python -m src.train_xgboost
+### 3. Run the Full End-to-End Analytics Pipeline
+Execute all 7 stages sequentially in ~35 seconds:
+```bash
+python run_pipeline.py
+```
 
-# 6. Run evaluation, SHAP explainability & financial simulation
-uv run python -m src.model_evaluation
-uv run python -m src.shap_explainability
-uv run python -m src.financial_simulation
+### 4. Run Automated Test Suite & Linter
+```bash
+# Run isolated unit and anti-leakage test suite
+pytest tests/ -v
 
-# 7. Export Power BI Star Schema tables
-uv run python -m src.export_powerbi
+# Run Ruff linter check
+ruff check .
 ```
 
 ---
 
-## 👨‍💻 Author
+## 🏛️ Project Directory Structure
 
-**Bruno Benno Reichert**  
-*Bachelor in Business Administration (UFRGS) | Junior AI Engineer & Python Back-end Developer*  
-* [LinkedIn](https://linkedin.com/in/brunobennoreichert) • [GitHub](https://github.com/bruno-reichert) • [Portfolio](https://bruno-reichert.github.io/portfolio-page)
+```text
+├── .github/
+│   └── workflows/
+│       └── ci.yml                     <- Automated CI Quality Gate (Ruff + Pytest)
+├── data/
+│   ├── raw/                           <- 8 raw Olist relational CSVs
+│   ├── processed/                     <- Clean customer & order Parquet datasets
+│   └── README.md                      <- Kaggle acquisition guide & CC BY-NC-SA 4.0 license
+├── models/
+│   └── best_xgboost_churn_pipeline.joblib <- Production-ready champion model artifact
+├── reports/
+│   ├── figures/                       <- Generated high-res analytical dashboards (01 to 15)
+│   └── metrics.json                   <- Centralized dynamic KPI repository (source of truth)
+├── src/
+│   ├── audit_data.py                  <- Schema & license validation script
+│   ├── config.py                      <- Central configuration (T0 cutoff, ratios, costs)
+│   ├── data_processing.py             <- Relational merging & Option B T0 feature synthesis
+│   ├── segmentation.py                <- Descriptive RFM clustering & persona profiling
+│   ├── model_pipeline.py              <- ColumnTransformer with in-pipeline category grouping
+│   ├── baseline_models.py             <- Baseline benchmarks & probability calibration
+│   ├── train_xgboost.py               <- Cross-validated hyperparameter optimization
+│   ├── model_evaluation.py            <- Out-of-time evaluation & threshold locking
+│   ├── shap_explainability.py         <- Tree-SHAP beeswarm and feature importance
+│   └── financial_simulation.py        <- Commercial retention simulation & sensitivity grid
+├── tests/
+│   ├── test_data_processing.py        <- Synthetic unit tests for joins, SLA, and T0 aggregation
+│   ├── test_pipeline.py               <- Synthetic pipeline invariants & probability bounds
+│   └── test_t0_leakage.py             <- Anti-leakage guardrail tests for T0 cutoff
+├── pyproject.toml                     <- Canonical project dependencies & metadata
+├── requirements.txt                   <- Synchronized dependency lockfile
+├── run_pipeline.py                    <- Master ignition runner (executes steps 1 to 7)
+└── LICENSE                            <- Open-source MIT License
+```
+
+---
+
+## 📜 Dataset Attribution & Licensing
+- **Dataset Attribution:** [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), published on Kaggle by Olist and André Sionek.
+- **Data License:** [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International).
+- **Code License:** [MIT License](LICENSE) (Open source for analytical and commercial adaptation).
