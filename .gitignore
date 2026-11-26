@@ -182,9 +182,6 @@ cython_debug/
 ecommerce-customer-churn-ltv/repomix-output.xml
 
 # ==========================================
-# Olist Project Large Data & Models (Nested)
-# ==========================================
-# ==========================================
 # Olist Project Large Data & Models (Explicit Nested Paths)
 # ==========================================
 ecommerce-customer-churn-ltv/data/raw/*.csv
