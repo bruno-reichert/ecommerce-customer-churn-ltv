@@ -184,10 +184,13 @@ ecommerce-customer-churn-ltv/repomix-output.xml
 # ==========================================
 # Olist Project Large Data & Models (Nested)
 # ==========================================
-**/data/raw/*.csv
-**/data/processed/*.parquet
-**/data/powerbi/*.csv
-**/models/*.joblib
-**/models/*.pkl
-**/*.parquet
-**/*.joblib
+# ==========================================
+# Olist Project Large Data & Models (Explicit Nested Paths)
+# ==========================================
+ecommerce-customer-churn-ltv/data/raw/*.csv
+ecommerce-customer-churn-ltv/data/processed/*.parquet
+ecommerce-customer-churn-ltv/data/powerbi/*.csv
+ecommerce-customer-churn-ltv/models/*.joblib
+ecommerce-customer-churn-ltv/models/*.pkl
+*.parquet
+*.joblib

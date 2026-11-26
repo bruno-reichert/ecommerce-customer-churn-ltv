@@ -175,11 +175,11 @@ cd ecommerce-customer-churn-ltv
 cd ecommerce-customer-churn-ltv
 
 # Install dependencies (Python 3.13+)
-pip install -r requirements.txt
+uv sync
 ```
 
-### 2. Download Raw Olist Data via Kaggle CLI
-Follow the instructions in `data/README.md` or execute:
+### 2. Download Raw Olist Data
+Download the 8 relational CSV files and place them into `data/raw/`. See [data/README.md](ecommerce-customer-churn-ltv/data/README.md) for direct browser download links. Alternatively, if you have the Kaggle CLI installed, you may choose to run the following command:
 ```bash
 kaggle datasets download -d olistbr/brazilian-ecommerce -p data/raw/ --unzip
 ```
