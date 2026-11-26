@@ -12,14 +12,13 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
-from xgboost import XGBClassifier
-
 from src.config import DATA_PROCESSED, MODELS_DIR, RANDOM_SEED
 from src.model_pipeline import (
     build_preprocessor_pipeline,
     prepare_features_and_target,
     split_data_chronological,
 )
+from xgboost import XGBClassifier
 
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 

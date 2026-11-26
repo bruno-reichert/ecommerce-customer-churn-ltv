@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 import pytest
-
 from src.config import DATA_PROCESSED, T0_TIMESTAMP
 
 DATA_PATH = DATA_PROCESSED / "customer_features.parquet"

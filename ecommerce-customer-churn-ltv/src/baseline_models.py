@@ -26,7 +26,6 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.pipeline import Pipeline
-
 from src.config import DATA_PROCESSED, FIGURES_DIR, RANDOM_SEED
 from src.model_pipeline import (
     build_preprocessor_pipeline,

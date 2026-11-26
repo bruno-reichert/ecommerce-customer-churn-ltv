@@ -15,13 +15,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from sklearn.pipeline import Pipeline
-from xgboost import XGBClassifier
-
 from src.model_pipeline import (
     build_preprocessor_pipeline,
     prepare_features_and_target,
     split_data_chronological,
 )
+from xgboost import XGBClassifier
 
 
 @pytest.fixture(scope="module")

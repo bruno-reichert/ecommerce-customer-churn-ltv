@@ -22,7 +22,6 @@ from sklearn.preprocessing import StandardScaler
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 from src.config import DATA_PROCESSED, FIGURES_DIR, RANDOM_SEED
 
 sns.set_theme(style="whitegrid", palette="muted")

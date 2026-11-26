@@ -24,7 +24,6 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-
 from src.config import (
     BASE_WIN_BACK_RATE,
     COUPON_COST,

@@ -15,7 +15,6 @@ import pandas as pd
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 from src.config import (
     BASE_WIN_BACK_RATE,
     COUPON_COST,

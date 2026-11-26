@@ -5,7 +5,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
-
 from src.config import DATA_RAW, OUTCOME_WINDOW_DAYS, T0_TIMESTAMP
 
 
