@@ -169,10 +169,7 @@ Because retail response rates and voucher economics vary, an illustrative sensit
 ### 1. Clone & Set Up Environment
 ```bash
 git clone https://github.com/your-username/ecommerce-customer-churn-ltv.git
-cd ecommerce-customer-churn-ltv
-
-# If your workspace uses the nested directory structure:
-cd ecommerce-customer-churn-ltv
+cd ecommerce-customer-churn-ltv/ecommerce-customer-churn-ltv
 
 # Install dependencies (Python 3.13+)
 uv sync
@@ -187,16 +184,16 @@ kaggle datasets download -d olistbr/brazilian-ecommerce -p data/raw/ --unzip
 ### 3. Run the Full End-to-End Analytics Pipeline
 Execute all 7 stages sequentially in ~35 seconds:
 ```bash
-python run_pipeline.py
+uv run python run_pipeline.py
 ```
 
 ### 4. Run Automated Test Suite & Linter
 ```bash
 # Run isolated unit and anti-leakage test suite
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run Ruff linter check
-ruff check .
+uv run ruff check .
 ```
 
 ---
@@ -204,38 +201,45 @@ ruff check .
 ## 🏛️ Project Directory Structure
 
 ```text
+ecommerce-customer-churn-ltv/          <- Repository Root
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                     <- Automated CI Quality Gate (Ruff + Pytest)
-├── data/
-│   ├── raw/                           <- 8 raw Olist relational CSVs
-│   ├── processed/                     <- Clean customer & order Parquet datasets
-│   └── README.md                      <- Kaggle acquisition guide & CC BY-NC-SA 4.0 license
-├── models/
-│   └── best_xgboost_churn_pipeline.joblib <- Production-ready champion model artifact
-├── reports/
-│   ├── figures/                       <- Generated high-res analytical dashboards (01 to 15)
-│   └── metrics.json                   <- Centralized dynamic KPI repository (source of truth)
-├── src/
-│   ├── audit_data.py                  <- Schema & license validation script
-│   ├── config.py                      <- Central configuration (T0 cutoff, ratios, costs)
-│   ├── data_processing.py             <- Relational merging & Option B T0 feature synthesis
-│   ├── segmentation.py                <- Descriptive RFM clustering & persona profiling
-│   ├── model_pipeline.py              <- ColumnTransformer with in-pipeline category grouping
-│   ├── baseline_models.py             <- Baseline benchmarks & probability calibration
-│   ├── train_xgboost.py               <- Cross-validated hyperparameter optimization
-│   ├── model_evaluation.py            <- Out-of-time evaluation & threshold locking
-│   ├── shap_explainability.py         <- Tree-SHAP beeswarm and feature importance
-│   └── financial_simulation.py        <- Commercial retention simulation & sensitivity grid
-├── tests/
-│   ├── test_data_processing.py        <- Synthetic unit tests for joins, SLA, and T0 aggregation
-│   ├── test_pipeline.py               <- Synthetic pipeline invariants & probability bounds
-│   └── test_t0_leakage.py             <- Anti-leakage guardrail tests for T0 cutoff
-├── pyproject.toml                     <- Canonical project dependencies & metadata
-├── requirements.txt                   <- Synchronized dependency lockfile
-├── run_pipeline.py                    <- Master ignition runner (executes steps 1 to 7)
-└── LICENSE                            <- Open-source MIT License
+├── ecommerce-customer-churn-ltv/      <- Core Project Workspace
+│   ├── data/
+│   │   ├── raw/                       <- 8 raw Olist relational CSVs
+│   │   ├── processed/                 <- Clean customer & order Parquet datasets
+│   │   └── README.md                  <- Kaggle acquisition guide & CC BY-NC-SA 4.0 license
+│   ├── models/
+│   │   └── best_xgboost_churn_pipeline.joblib <- Production-ready champion model artifact
+│   ├── reports/
+│   │   ├── figures/                   <- Generated high-res analytical dashboards (01 to 15)
+│   │   └── metrics.json               <- Centralized dynamic KPI repository (source of truth)
+│   ├── src/
+│   │   ├── audit_data.py              <- Schema & license validation script
+│   │   ├── config.py                  <- Central configuration (T0 cutoff, ratios, costs)
+│   │   ├── data_processing.py         <- Relational merging & Option B T0 feature synthesis
+│   │   ├── segmentation.py            <- Descriptive RFM clustering & persona profiling
+│   │   ├── model_pipeline.py          <- ColumnTransformer with in-pipeline category grouping
+│   │   ├── baseline_models.py         <- Baseline benchmarks & probability calibration
+│   │   ├── train_xgboost.py           <- Cross-validated hyperparameter optimization
+│   │   ├── model_evaluation.py        <- Out-of-time evaluation & threshold locking
+│   │   ├── shap_explainability.py     <- Tree-SHAP beeswarm and feature importance
+│   │   └── financial_simulation.py    <- Commercial retention simulation & sensitivity grid
+│   ├── tests/
+│   │   ├── test_data_processing.py    <- Synthetic unit tests for joins, SLA, and T0 aggregation
+│   │   ├── test_pipeline.py           <- Synthetic pipeline invariants & probability bounds
+│   │   └── test_t0_leakage.py         <- Anti-leakage guardrail tests for T0 cutoff
+│   ├── pyproject.toml                 <- Canonical project dependencies & metadata
+│   ├── requirements.txt               <- Synchronized dependency lockfile
+│   └── run_pipeline.py                <- Master ignition runner (executes steps 1 to 7)
+├── .gitignore
+├── LICENSE                            <- Open-source MIT License
+├── powerbi_readme.md
+└── README.md
 ```
+
+
 
 ---
 
