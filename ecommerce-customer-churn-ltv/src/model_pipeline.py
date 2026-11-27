@@ -1,7 +1,15 @@
+"""
+Machine Learning Pipeline & Out-of-Time Data Splitting Module.
+Evaluates the rare positive class: repurchased_in_window (1 = repeat buyer, 0 = churned).
+Includes legitimate recency_days and customer_relationship_days.
+Uses Snapshot 1 for Train/Val and Snapshot 2 for Test (Option 2).
+"""
+
 import sys
 from pathlib import Path
+from typing import List, Tuple
 
-# Ensure project root is in sys.path
+# Guarantee project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
@@ -9,16 +17,17 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from src.config import DATA_PROCESSED, TEST_RATIO, TRAIN_RATIO, VAL_RATIO
+
+from src.config import DATA_PROCESSED, RANDOM_SEED
 
 
 class TopCategoriesGrouper(BaseEstimator, TransformerMixin):
     """
-    Scikit-Learn Transformer that learns the top N most frequent categories
-    from the training set and groups all other/unseen categories into 'other'.
-    Guarantees zero target leakage or snooping into validation/test splits.
+    Learns top N most frequent categories from X_train only;
+    maps all other categories to 'other'.
     """
     def __init__(self, top_n: int = 15):
         self.top_n = top_n
@@ -35,29 +44,30 @@ class TopCategoriesGrouper(BaseEstimator, TransformerMixin):
         return transformed.to_numpy().reshape(-1, 1)
 
     def get_feature_names_out(self, input_features=None):
-        """Passes through the input feature name so ColumnTransformer can label columns cleanly."""
         if input_features is None:
             return np.array(["favorite_category"], dtype=object)
         return np.asarray(input_features, dtype=object)
 
 
-def prepare_features_and_target(df_customers: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, pd.Series, list[str], list[str]]:
+def prepare_features_and_target(df_customers: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, List[str], List[str]]:
     """
-    Separates the target from predictive features, explicitly dropping
-    recency and timestamps from X to prevent target data leakage.
-    Leaves raw categories untouched so the Sklearn pipeline can fit on X_train.
+    Prepares feature matrix X and target y.
+    TARGET DEFINITION:
+    - y = repurchased_in_window (1 = repurchased within 180 days, 0 = churned).
+    - Positive class is the rare event (~1.18% - 1.63%).
+    FEATURES:
+    - Includes legitimate recency_days and customer_relationship_days (measured up to snapshot T0).
+    - Excludes persona and cluster (descriptive only).
     """
-    print("\n--- 1. Separating Features (X) & Target (y) ---")
     df = df_customers.copy()
 
-    # Define the target
-    y = df["is_churned"].copy()
+    # Evaluation Target: 1 = Repurchased (Rare Event), 0 = Churned
+    y = df["repurchased_in_window"].copy()
 
-    # Extract first purchase timestamp strictly for chronological splitting
-    timestamps = pd.to_datetime(df["first_purchase_timestamp"]).copy()
-
-    # Explicit list of numerical predictors (behavioral, logistics, spend)
+    # Predictor features
     numerical_features = [
+        "recency_days",                  # Legitimate recency at snapshot T0
+        "customer_relationship_days",    # Account maturity at snapshot T0
         "total_orders",
         "total_items_bought",
         "total_spend",
@@ -72,43 +82,33 @@ def prepare_features_and_target(df_customers: pd.DataFrame) -> tuple[pd.DataFram
         "avg_installments"
     ]
 
-    # Categorical predictors
     categorical_features = [
         "customer_state",
         "favorite_category",
     ]
 
-    # Do NOT pre-group favorite_category here; the pipeline will fit it on X_train only!
     X = df[numerical_features + categorical_features].copy()
 
-    print(f"Total Customer Records: {len(X):,}")
-    print(f"Numerical Features ({len(numerical_features)}): {', '.join(numerical_features[:4])}...")
-    print(f"Categorical Features ({len(categorical_features)}): {', '.join(categorical_features)}")
-    print(f"Target Distribution: {y.value_counts(normalize=True).to_dict()}")
-
-    return X, y, timestamps, numerical_features, categorical_features
+    return X, y, numerical_features, categorical_features
 
 
-def build_preprocessor_pipeline(numerical_features: list[str], categorical_features: list[str]) -> ColumnTransformer:
+def build_preprocessor_pipeline(numerical_features: List[str], categorical_features: List[str]) -> ColumnTransformer:
     """
-    Creates a hermetic Scikit-Learn ColumnTransformer:
-    - Numerical: Median Imputation -> StandardScaler (fitted on X_train only)
-    - State: OneHotEncoder (ignore unknowns)
+    Creates an atomic Scikit-Learn ColumnTransformer:
+    - Numerical: Median Imputer (fitted on X_train only) -> StandardScaler
     - Category: TopCategoriesGrouper (fitted on X_train only) -> OneHotEncoder
+    - State: OneHotEncoder
     """
-    # 1. Numerical Sub-Pipeline: Median Imputation -> Scaling
     num_pipeline = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler())
     ])
 
-    # 2. Favorite Category Sub-Pipeline: Top 15 Grouper -> OneHotEncoder
     category_pipeline = Pipeline([
         ("grouper", TopCategoriesGrouper(top_n=15)),
         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
     ])
 
-    # 3. State Sub-Pipeline: Direct OneHotEncoder
     state_pipeline = Pipeline([
         ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
     ])
@@ -124,57 +124,39 @@ def build_preprocessor_pipeline(numerical_features: list[str], categorical_featu
     return preprocessor
 
 
-def split_data_chronological(
-    X: pd.DataFrame,
-    y: pd.Series,
-    timestamps: pd.Series,
-    train_ratio: float = TRAIN_RATIO,
-    val_ratio: float = VAL_RATIO,
-    test_ratio: float = TEST_RATIO
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+def load_out_of_time_splits() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, List[str], List[str]]:
     """
-    Performs a strict Time-Based Chronological Split based on customer arrival
-    (first_purchase_timestamp).
+    Option 2: Rolling Snapshots Out-of-Time Splitting.
+    - Snapshot 1 (T0 = 2017-09-01): Partitioned into Train (80%) and Val (20%) via Stratification.
+    - Snapshot 2 (T0 = 2018-03-01): Held-out Test Set (100% unseen future time horizon).
     """
-    assert abs((train_ratio + val_ratio + test_ratio) - 1.0) < 1e-5, "Split ratios must sum to 1.0!"
+    train_snap_path = DATA_PROCESSED / "customer_features_train.parquet"
+    test_snap_path = DATA_PROCESSED / "customer_features_test.parquet"
 
-    print(f"\n--- 2. Executing Chronological Split ({int(train_ratio*100)}% Train / {int(val_ratio*100)}% Val / {int(test_ratio*100)}% Test) ---")
+    assert train_snap_path.exists() and test_snap_path.exists(), "Snapshot files missing!"
 
-    sorted_indices = timestamps.sort_values().index
-    n_total = len(sorted_indices)
-    train_end = int(n_total * train_ratio)
-    val_end = int(n_total * (train_ratio + val_ratio))
+    df_train_snap = pd.read_parquet(train_snap_path)
+    df_test_snap = pd.read_parquet(test_snap_path)
 
-    train_idx = sorted_indices[:train_end]
-    val_idx = sorted_indices[train_end:val_end]
-    test_idx = sorted_indices[val_end:]
+    # 1. Prepare Features & Target
+    X_train_full, y_train_full, num_cols, cat_cols = prepare_features_and_target(df_train_snap)
+    X_test, y_test, _, _ = prepare_features_and_target(df_test_snap)
 
-    X_train, y_train = X.loc[train_idx].reset_index(drop=True), y.loc[train_idx].reset_index(drop=True)
-    X_val, y_val = X.loc[val_idx].reset_index(drop=True), y.loc[val_idx].reset_index(drop=True)
-    X_test, y_test = X.loc[test_idx].reset_index(drop=True), y.loc[test_idx].reset_index(drop=True)
+    # 2. Stratified Train/Val Split within Snapshot 1
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train_full, y_train_full,
+        test_size=0.20,
+        stratify=y_train_full,
+        random_state=RANDOM_SEED
+    )
 
-    print(f"Training Set:   {len(X_train):,} samples (Dates: {timestamps.loc[train_idx].min().date()} to {timestamps.loc[train_idx].max().date()} | Churn: {y_train.mean()*100:.2f}%)")
-    print(f"Validation Set: {len(X_val):,} samples (Dates: {timestamps.loc[val_idx].min().date()} to {timestamps.loc[val_idx].max().date()} | Churn: {y_val.mean()*100:.2f}%)")
-    print(f"Testing Set:    {len(X_test):,} samples (Dates: {timestamps.loc[test_idx].min().date()} to {timestamps.loc[test_idx].max().date()} | Churn: {y_test.mean()*100:.2f}%)")
+    print("\n--- Out-of-Time Rolling Snapshot Partitions ---")
+    print(f"Train Set (Snapshot 1 - 80%): {len(X_train):,} samples (Repurchase Rate: {y_train.mean()*100:.2f}%)")
+    print(f"Val Set   (Snapshot 1 - 20%): {len(X_val):,} samples (Repurchase Rate: {y_val.mean()*100:.2f}%)")
+    print(f"Test Set  (Snapshot 2 - 100%): {len(X_test):,} samples (Repurchase Rate: {y_test.mean()*100:.2f}%)")
 
-    return X_train, X_val, X_test, y_train, y_val, y_test
+    return X_train, X_val, X_test, y_train, y_val, y_test, num_cols, cat_cols
 
 
 if __name__ == "__main__":
-    cust_path = DATA_PROCESSED / "customer_features.parquet"
-    if not cust_path.exists():
-        print(f"❌ File not found at {cust_path}!")
-    else:
-        print(f"Loading {cust_path}...")
-        df_customers = pd.read_parquet(cust_path)
-        X, y, timestamps, num_cols, cat_cols = prepare_features_and_target(df_customers)
-        X_train, X_val, X_test, y_train, y_val, y_test = split_data_chronological(X, y, timestamps)
-
-        # Quick validation of the new preprocessor
-        print("\n--- Testing Pipeline Fit on X_train only ---")
-        preprocessor = build_preprocessor_pipeline(num_cols, cat_cols)
-        X_train_trans = preprocessor.fit_transform(X_train)
-        X_test_trans = preprocessor.transform(X_test)
-        print(f"✅ X_train transformed shape: {X_train_trans.shape}")
-        print(f"✅ X_test transformed shape:  {X_test_trans.shape}")
-        print("✅ Pipeline successfully fit on X_train and applied to X_test with zero leakage!")
+    X_train, X_val, X_test, y_train, y_val, y_test, num_cols, cat_cols = load_out_of_time_splits()

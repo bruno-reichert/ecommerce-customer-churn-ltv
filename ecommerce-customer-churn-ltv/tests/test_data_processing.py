@@ -3,18 +3,16 @@ Isolated unit tests for data processing and aggregation logic.
 Uses lightweight synthetic fixtures so tests can run in milliseconds
 on a clean checkout without requiring pre-downloaded raw datasets.
 """
-
 import sys
 from pathlib import Path
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 import pytest
 from src.data_processing import (
-    aggregate_to_customer_level_with_t0,
+    build_snapshot_cohort,
     build_unified_orders_dataframe,
-    engineer_order_level_features,
+    engineer_order_level_features_with_t0_censor,
 )
 
 
@@ -64,7 +62,7 @@ def synthetic_raw_tables():
     })
 
     items = pd.DataFrame({
-        "order_id": ["O1", "O1", "O2", "O3", "O4", "O5"],  # O1 has 2 items
+        "order_id": ["O1", "O1", "O2", "O3", "O4", "O5"],
         "order_item_id": [1, 2, 1, 1, 1, 1],
         "product_id": ["P1", "P2", "P1", "P3", "P1", "P2"],
         "price": [50.0, 50.0, 100.0, 75.0, 120.0, 40.0],
@@ -81,7 +79,14 @@ def synthetic_raw_tables():
     reviews = pd.DataFrame({
         "review_id": ["R1", "R2", "R3", "R4", "R5"],
         "order_id": ["O1", "O2", "O3", "O4", "O5"],
-        "review_score": [5, 1, 4, 5, 2]
+        "review_score": [5, 1, 4, 5, 2],
+        "review_creation_date": [
+            "2017-05-21 00:00:00",
+            "2017-11-29 00:00:00",
+            "2018-01-26 00:00:00",
+            "2018-04-19 00:00:00",
+            "2017-08-16 00:00:00"
+        ]
     })
 
     products = pd.DataFrame({
@@ -105,73 +110,54 @@ def synthetic_raw_tables():
     }
 
 
-# ==========================================
-# 1. MERGE INTEGRITY & NO CARTESIAN EXPLOSION
-# ==========================================
 def test_build_unified_orders_no_row_duplication(synthetic_raw_tables):
     """Verifies that merging 1-to-many items/payments does NOT duplicate order rows."""
     df_orders = build_unified_orders_dataframe(synthetic_raw_tables)
+    assert len(df_orders) == 5
+    assert df_orders["order_id"].nunique() == 5
 
-    # 5 delivered orders input must yield exactly 5 delivered orders output
-    assert len(df_orders) == 5, f"Expected 5 orders, got {len(df_orders)}"
-    assert df_orders["order_id"].nunique() == 5, "Duplicate order_ids detected!"
-
-    # O1 had 2 items (price 50 + 50 = 100), total items = 2
     o1 = df_orders[df_orders["order_id"] == "O1"].iloc[0]
     assert o1["total_items"] == 2
     assert o1["total_item_value"] == 100.0
 
 
-# ==========================================
-# 2. FEATURE ENGINEERING ACCURACY
-# ==========================================
-def test_engineer_order_level_features(synthetic_raw_tables):
-    """Verifies delay calculation, late flags, and negative review logic."""
+def test_engineer_order_level_features_with_t0_censor(synthetic_raw_tables):
+    """Verifies delay calculation, late flags, and anti-leakage censoring at T0."""
     df_orders = build_unified_orders_dataframe(synthetic_raw_tables)
-    df_featured = engineer_order_level_features(df_orders)
+    t0 = pd.to_datetime("2018-03-01 00:00:00")
+    df_featured = engineer_order_level_features_with_t0_censor(df_orders, t0)
 
     # O2 arrived on 2017-11-28 but estimated was 2017-11-27 -> 1 day late
     o2 = df_featured[df_featured["order_id"] == "O2"].iloc[0]
     assert o2["is_late_delivery"] == 1
     assert o2["delivery_delay_days"] > 0
-    assert o2["is_negative_review"] == 1  # Review score was 1
+    assert o2["is_negative_review"] == 1
 
 
-# ==========================================
-# 3. CUSTOMER AGGREGATION & ANTI-LEAKAGE
-# ==========================================
-def test_aggregate_to_customer_level_t0_properties(synthetic_raw_tables):
+def test_build_snapshot_cohort_t0_properties(synthetic_raw_tables):
     """
     Verifies that:
     1. Output has exactly one row per customer.
     2. Features only use orders <= T0 (O4 from C2 is NOT in feature counts).
-    3. Correct ground-truth churn label is assigned.
+    3. Correct ground-truth repurchase label is assigned (C2 repurchased = 1, C3 = 0).
     """
     df_orders = build_unified_orders_dataframe(synthetic_raw_tables)
-    df_featured = engineer_order_level_features(df_orders)
-
     t0_cutoff = "2018-03-01 00:00:00"
-    df_cust, _ = aggregate_to_customer_level_with_t0(
-        df_featured, t0_str=t0_cutoff, outcome_days=180
-    )
+    df_cust = build_snapshot_cohort(df_orders, t0_str=t0_cutoff, outcome_days=180)
 
-    # All 3 customers (C1, C2, C3) had orders <= T0, so cohort size must be 3
     assert len(df_cust) == 3
-    assert df_cust["customer_unique_id"].nunique() == 3, "Not exactly one row per customer!"
+    assert df_cust["customer_unique_id"].nunique() == 3
 
     # Customer C2 placed 1 order before T0 and 1 order after T0:
     c2 = df_cust[df_cust["customer_unique_id"] == "C2"].iloc[0]
-    # Feature total_orders must be 1 (O4 happened after T0!)
     assert c2["total_orders"] == 1, f"Data leakage! C2 has {c2['total_orders']} orders instead of 1."
-    # C2 bought in the outcome window -> Retained (repurchased_in_window = 1, is_churned = 0)
     assert c2["repurchased_in_window"] == 1
     assert c2["is_churned"] == 0
 
-    # Customer C3 had 1 order before T0 and zero orders in outcome window -> Churned (is_churned = 1)
+    # Customer C3 had 1 order before T0 and zero orders in outcome window
     c3 = df_cust[df_cust["customer_unique_id"] == "C3"].iloc[0]
     assert c3["repurchased_in_window"] == 0
     assert c3["is_churned"] == 1
 
-    # Verify no feature timestamp exceeds T0
-    max_feature_date = pd.to_datetime(df_cust["last_purchase_timestamp"]).max()
-    assert max_feature_date <= pd.to_datetime(t0_cutoff), "Feature timestamp exceeded T0 cutoff!"
+    # Legitimate recency feature relative to T0
+    assert (df_cust["recency_days"] >= 0).all()

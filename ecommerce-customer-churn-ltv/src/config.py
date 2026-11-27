@@ -18,13 +18,19 @@ FIGURES_DIR = REPORTS_DIR / "figures"
 METRICS_JSON_PATH = REPORTS_DIR / "metrics.json"
 
 # ==========================================
-# 2. Temporal Observation Window (Option B)
+# 2. Temporal Observation Windows (Option 2: Rolling Snapshots)
 # ==========================================
-# T0: Cutoff timestamp dividing feature observation from future outcome
-T0_TIMESTAMP = "2018-03-01 00:00:00"
-
-# Forward outcome window in days (T0 to T0 + OUTCOME_WINDOW_DAYS)
+# Forward outcome window in days
 OUTCOME_WINDOW_DAYS = 180
+
+# Training Snapshot: Feature cutoff T0_train, outcome window T0_train to T0_train + 180d
+T0_TRAIN_TIMESTAMP = "2017-09-01 00:00:00"
+
+# Testing Snapshot: Feature cutoff T0_test, outcome window T0_test to T0_test + 180d
+T0_TEST_TIMESTAMP = "2018-03-01 00:00:00"
+
+# Backward compatibility alias
+T0_TIMESTAMP = T0_TEST_TIMESTAMP
 
 # ==========================================
 # 3. Model & Experiment Reproducibility
