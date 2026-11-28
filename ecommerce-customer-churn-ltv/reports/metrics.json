@@ -1,32 +1,104 @@
 {
-    "dataset": {
-        "total_customers_eligible": 55525,
-        "test_customers": 8329,
-        "test_churn_rate_pct": 98.34
+    "dataset_snapshot_2_test": {
+        "total_customers": 55525,
+        "repurchased_count": 653,
+        "prevalence_rate_pct": 1.18,
+        "at_risk_spend_pool_brl": 106353.25
     },
-    "threshold_tuning": {
-        "optimal_threshold": 0.1,
-        "validation_net_profit": 188054.48
-    },
-    "test_macro_strategies": {
-        "blanket": {
-            "targeted": 8329,
-            "cost": 124935.0,
-            "gross_preserved": 311923.2,
-            "net_profit": 186988.2,
-            "roi_pct": 149.7
+    "simulation_strategies": [
+        {
+            "Strategy": "1. Status Quo (Do Nothing)",
+            "Customers Targeted": 0,
+            "Targeted %": "0.0%",
+            "Campaign Cost (R$)": 0.0,
+            "Gross Preserved (R$)": 0.0,
+            "Net Profit (R$)": 0.0,
+            "ROI (%)": 0.0,
+            "Incremental vs Random (R$)": 0.0
         },
-        "ml_targeted": {
-            "targeted": 8329,
-            "cost": 124935.0,
-            "gross_preserved": 311923.2,
-            "net_profit": 186988.2,
-            "roi_pct": 149.7
+        {
+            "Strategy": "Top 10% ML-Targeted",
+            "Customers Targeted": 5552,
+            "Targeted %": "10%",
+            "Campaign Cost (R$)": 83280.0,
+            "Gross Preserved (R$)": 5284.83,
+            "Net Profit (R$)": -77995.17,
+            "ROI (%)": -93.7,
+            "Incremental vs Random (R$)": 2626.24
+        },
+        {
+            "Strategy": "Top 20% ML-Targeted",
+            "Customers Targeted": 11105,
+            "Targeted %": "20%",
+            "Campaign Cost (R$)": 166575.0,
+            "Gross Preserved (R$)": 7128.86,
+            "Net Profit (R$)": -159446.14,
+            "ROI (%)": -95.7,
+            "Incremental vs Random (R$)": 1811.2
+        },
+        {
+            "Strategy": "Blanket Marketing (100%)",
+            "Customers Targeted": 55525,
+            "Targeted %": "100%",
+            "Campaign Cost (R$)": 832875.0,
+            "Gross Preserved (R$)": 26588.31,
+            "Net Profit (R$)": -806286.69,
+            "ROI (%)": -96.8,
+            "Incremental vs Random (R$)": 0.0
         }
-    },
-    "assumptions": {
-        "base_coupon_cost": 15.0,
-        "base_win_back_rate": 0.25,
-        "simulation_nature": "illustrative"
-    }
+    ],
+    "breakeven_analysis": [
+        {
+            "Voucher Unit Cost": "R$ 10.00",
+            "Blanket Break-Even Win-Back": "522.08%",
+            "Top 10% ML Break-Even Win-Back": "262.64%",
+            "Natural Prevalence Rate": "1.18%"
+        },
+        {
+            "Voucher Unit Cost": "R$ 15.00",
+            "Blanket Break-Even Win-Back": "783.12%",
+            "Top 10% ML Break-Even Win-Back": "393.96%",
+            "Natural Prevalence Rate": "1.18%"
+        },
+        {
+            "Voucher Unit Cost": "R$ 20.00",
+            "Blanket Break-Even Win-Back": "1044.16%",
+            "Top 10% ML Break-Even Win-Back": "525.28%",
+            "Natural Prevalence Rate": "1.18%"
+        }
+    ],
+    "persona_payoff_top10": [
+        {
+            "Persona": "Active / Recent Buyers",
+            "Targeted in Top 10%": 2934,
+            "Targeted Share %": 52.845821325648416,
+            "Spend Preserved (R$)": 1552.64,
+            "Net Profit (R$)": -42457.36,
+            "ROI (%)": -96.5
+        },
+        {
+            "Persona": "At-Risk High Spenders",
+            "Targeted in Top 10%": 1470,
+            "Targeted Share %": 26.476945244956774,
+            "Spend Preserved (R$)": 1361.56,
+            "Net Profit (R$)": -20688.44,
+            "ROI (%)": -93.8
+        },
+        {
+            "Persona": "Champions / Loyal VIPs",
+            "Targeted in Top 10%": 469,
+            "Targeted Share %": 8.447406340057636,
+            "Spend Preserved (R$)": 2214.59,
+            "Net Profit (R$)": -4820.41,
+            "ROI (%)": -68.5
+        },
+        {
+            "Persona": "Lost / Hibernating Shoppers",
+            "Targeted in Top 10%": 679,
+            "Targeted Share %": 12.229827089337174,
+            "Spend Preserved (R$)": 156.05,
+            "Net Profit (R$)": -10028.95,
+            "ROI (%)": -98.5
+        }
+    ]
 }
